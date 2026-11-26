@@ -1,0 +1,24 @@
+# Render blueprint. Secrets marked sync:false are entered in the Render dashboard, never committed.
+databases:
+  - name: clearair-db
+    plan: basic-256mb
+    databaseName: clearair
+services:
+  - type: web
+    name: clearair-together
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - { key: NODE_VERSION, value: "22" }
+      - { key: NODE_ENV, value: production }
+      - { key: TRUST_PROXY, value: "true" }
+      - { key: RUN_MIGRATIONS_ON_START, value: "true" }
+      - { key: DATABASE_URL, fromDatabase: { name: clearair-db, property: connectionString } }
+      - { key: SESSION_SECRET, generateValue: true }
+      - { key: APP_ORIGIN, sync: false }
+      - { key: GOOGLE_AIR_QUALITY_API_KEY, sync: false }
+      - { key: ANTHROPIC_API_KEY, sync: false }
+      - { key: AI_MODEL, value: claude-3-5-sonnet-latest }

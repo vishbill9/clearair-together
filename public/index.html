@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ClearAir Together</title>
+    <meta
+      name="description"
+      content="Household air-quality guidance based on verified data, with exposure and emissions kept separate."
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/js/main.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="top">
+      <h1>ClearAir Together</h1>
+      <p class="tag">Air-quality guidance for your household. Real data, or an honest “no reading”.</p>
+    </header>
+
+    <div id="config-banner" class="banner" role="status" hidden></div>
+
+    <main id="main" class="layout">
+      <div class="col-main">
+        <section aria-labelledby="h-where" class="panel">
+          <h2 id="h-where">Where are you?</h2>
+          <form id="loc-form" class="row" novalidate>
+            <div class="field">
+              <label for="lat">Latitude</label
+              ><input id="lat" name="lat" inputmode="decimal" autocomplete="off" required />
+            </div>
+            <div class="field">
+              <label for="lng">Longitude</label
+              ><input id="lng" name="lng" inputmode="decimal" autocomplete="off" required />
+            </div>
+            <div class="actions">
+              <button type="button" id="geo" class="secondary">Use my location</button>
+              <button type="submit">Check air quality</button>
+            </div>
+          </form>
+          <p id="loc-error" class="error" role="alert" hidden></p>
+          <p class="hint">
+            Coordinates are rounded to about 1 km before use. Your browser only shares your position if you
+            press the button.
+          </p>
+        </section>
+
+        <section aria-labelledby="h-now" class="panel" id="status-panel" aria-live="polite">
+          <h2 id="h-now">Air quality now</h2>
+          <div id="status-empty" class="empty">Enter a location to see current air quality.</div>
+          <div id="status" hidden>
+            <div class="column" id="column" role="img" aria-label="Air quality category">
+              <span id="column-marker"></span>
+            </div>
+            <p class="big" id="status-headline"></p>
+            <p id="status-reason" class="notice" hidden></p>
+            <div class="badges">
+              <span class="badge" id="fresh-badge"></span>
+              <span class="badge plain" id="source-badge"></span>
+            </div>
+            <dl class="prov" id="prov"></dl>
+            <h3>Index values</h3>
+            <ul id="indexes" class="plain-list"></ul>
+            <h3>Pollutants</h3>
+            <p class="hint" id="dominant"></p>
+            <table class="tbl" id="pollutants">
+              <caption class="sr">
+                Pollutant concentrations
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Pollutant</th>
+                  <th scope="col">Concentration</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <h3>Provider health notes</h3>
+            <ul id="provider-health" class="plain-list"></ul>
+          </div>
+        </section>
+
+        <section aria-labelledby="h-house" class="panel">
+          <h2 id="h-house">Your household</h2>
+          <p class="hint">
+            Only age groups and practical constraints are stored. No names, no health details.
+          </p>
+          <form id="house-form" novalidate>
+            <div class="field">
+              <label for="h-name">Household name</label
+              ><input id="h-name" maxlength="80" value="Home" required />
+            </div>
+            <fieldset>
+              <legend>People who may need extra care</legend>
+              <label class="check"><input type="checkbox" id="m-child" /> A child lives here</label>
+              <label class="check"><input type="checkbox" id="m-older" /> An older adult lives here</label>
+              <label class="check"
+                ><input type="checkbox" id="m-caution" /> Someone needs extra caution on poor-air days</label
+              >
+            </fieldset>
+            <div class="row">
+              <div class="field">
+                <label for="c-commute">Usual commute</label>
+                <select id="c-commute">
+                  <option value="unknown">Not sure</option>
+                  <option value="walk">Walk</option>
+                  <option value="cycle">Cycle</option>
+                  <option value="bus">Bus</option>
+                  <option value="metro">Metro / train</option>
+                  <option value="car">Car</option>
+                  <option value="two_wheeler">Two-wheeler</option>
+                  <option value="rideshare">Rideshare</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="c-fuel">Cooking fuel</label>
+                <select id="c-fuel">
+                  <option value="unknown">Not sure</option>
+                  <option value="lpg">LPG</option>
+                  <option value="piped_gas">Piped gas</option>
+                  <option value="electric">Electric</option>
+                  <option value="induction">Induction</option>
+                  <option value="biomass">Biomass</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="c-time">Schedule flexibility</label>
+                <select id="c-time">
+                  <option value="unknown">Not sure</option>
+                  <option value="fixed">Fixed</option>
+                  <option value="some">Some</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="c-budget">Budget for changes</label>
+                <select id="c-budget">
+                  <option value="unknown">Not sure</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+            </div>
+            <fieldset>
+              <legend>At home</legend>
+              <label class="check"><input type="checkbox" id="c-wfh" /> I can work from home</label>
+              <label class="check"><input type="checkbox" id="c-purifier" /> We have an air purifier</label>
+              <label class="check"><input type="checkbox" id="c-pets" /> We have pets</label>
+            </fieldset>
+            <button type="submit" id="house-save">Save household</button>
+            <p id="house-msg" class="hint" role="status"></p>
+          </form>
+        </section>
+
+        <section aria-labelledby="h-plan" class="panel">
+          <h2 id="h-plan">What to do today</h2>
+          <button type="button" id="plan-btn" disabled>Build today’s plan</button>
+          <p class="hint" id="plan-hint">Save your household and check air quality first.</p>
+          <div id="plan" hidden>
+            <p class="big" id="plan-headline"></p>
+            <p id="plan-reason" class="notice" hidden></p>
+            <ul id="plan-items" class="actions-list"></ul>
+            <h3>Indoor quick wins</h3>
+            <ul id="quick-wins" class="actions-list"></ul>
+            <p class="hint" id="plan-note"></p>
+          </div>
+        </section>
+
+        <section aria-labelledby="h-routine" class="panel">
+          <h2 id="h-routine">Compare routines</h2>
+          <p class="hint">
+            Exposure is what you breathe. Emissions are what your choice puts into the air. They are shown
+            separately because they often disagree.
+          </p>
+          <fieldset id="cand">
+            <legend>Options to compare with your usual commute</legend>
+            <label class="check"><input type="checkbox" value="work_from_home" /> Work from home</label>
+            <label class="check"><input type="checkbox" value="walk" checked /> Walk</label>
+            <label class="check"><input type="checkbox" value="cycle" /> Cycle</label>
+            <label class="check"><input type="checkbox" value="bus" checked /> Bus</label>
+            <label class="check"><input type="checkbox" value="metro" checked /> Metro / train</label>
+            <label class="check"><input type="checkbox" value="car" /> Car</label>
+            <label class="check"><input type="checkbox" value="two_wheeler" /> Two-wheeler</label>
+          </fieldset>
+          <button type="button" id="compare-btn" disabled>Compare</button>
+          <p id="compare-msg" class="notice" hidden></p>
+          <table class="tbl" id="compare-tbl" hidden>
+            <caption class="sr">
+              Routine comparison
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Option</th>
+                <th scope="col">Your exposure</th>
+                <th scope="col">Emissions</th>
+                <th scope="col">Note</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <section aria-labelledby="h-indoor" class="panel">
+          <h2 id="h-indoor">Indoor air</h2>
+          <div id="indoor-status" class="empty">
+            Indoor air quality is only reported from a real sensor reading. None yet.
+          </div>
+          <div id="camera-block" hidden>
+            <h3>Camera check</h3>
+            <p class="hint">Look for possible sources and ventilation clues in a photo of a room.</p>
+            <form id="visual-form" novalidate>
+              <div class="field">
+                <label for="img">Photo (JPEG, PNG or WebP)</label
+                ><input id="img" type="file" accept="image/jpeg,image/png,image/webp" />
+              </div>
+              <div class="row">
+                <div class="field">
+                  <label for="v-area">Room floor area (m²)</label><input id="v-area" inputmode="decimal" />
+                </div>
+                <div class="field">
+                  <label for="v-height">Ceiling height (m)</label><input id="v-height" inputmode="decimal" />
+                </div>
+                <div class="field">
+                  <label for="v-cadr">Purifier CADR (m³/h)</label><input id="v-cadr" inputmode="decimal" />
+                </div>
+              </div>
+              <label class="check"
+                ><input type="checkbox" id="v-store" /> Keep this photo, encrypted, for the retention
+                period</label
+              >
+              <button type="submit" id="visual-btn" disabled>Check photo</button>
+            </form>
+            <p id="visual-msg" class="notice" hidden></p>
+            <div id="visual-out" hidden></div>
+          </div>
+        </section>
+
+        <section aria-labelledby="h-comm" class="panel">
+          <h2 id="h-comm">Community challenge</h2>
+          <p class="hint">
+            Only group totals are shown, and only once at least 5 people take part. Nobody is ranked.
+          </p>
+          <form id="chal-form" class="row" novalidate>
+            <div class="field">
+              <label for="chal-title">Challenge name</label
+              ><input id="chal-title" maxlength="100" value="Clean air week" />
+            </div>
+            <div class="actions"><button type="submit">Start a challenge</button></div>
+          </form>
+          <div id="chal" hidden>
+            <p class="big" id="chal-title-out"></p>
+            <p id="chal-count"></p>
+            <p class="hint" id="chal-link"></p>
+            <label for="chal-action">I did this today</label>
+            <div class="row">
+              <select id="chal-action">
+                <option value="shift_exercise">Moved exercise to a cleaner time</option>
+                <option value="close_windows_peak">Kept windows closed at the worst hours</option>
+                <option value="run_purifier">Ran a purifier</option>
+                <option value="cooking_exhaust">Used the exhaust fan when cooking</option>
+                <option value="no_indoor_smoke">Avoided indoor smoke</option>
+                <option value="low_emission_trip">Chose a lower-emission trip</option>
+              </select>
+              <button type="button" id="chal-log" class="secondary">Log it</button>
+            </div>
+            <ul id="chal-actions" class="plain-list"></ul>
+          </div>
+        </section>
+      </div>
+
+      <aside class="col-side" aria-labelledby="h-ai">
+        <section class="panel sticky">
+          <h2 id="h-ai">Ask the assistant</h2>
+          <p class="hint">
+            General guidance only. It uses the verified air-quality data above and cannot diagnose or replace
+            medical care or emergency services.
+          </p>
+          <div id="chat" class="chat" role="log" aria-live="polite" aria-label="Conversation"></div>
+          <form id="chat-form" novalidate>
+            <label for="chat-input">Your question</label>
+            <textarea
+              id="chat-input"
+              rows="3"
+              maxlength="800"
+              placeholder="For example: should I move my run to the evening?"
+            ></textarea>
+            <div class="actions">
+              <button type="submit" id="chat-send">Ask</button>
+              <button type="button" id="voice-btn" class="secondary" hidden>Start voice</button>
+            </div>
+          </form>
+          <div id="voice-panel" hidden>
+            <p class="hint" id="voice-state" role="status"></p>
+            <div class="captions" id="captions" aria-live="polite" aria-label="Live captions"></div>
+            <button type="button" id="voice-stop" class="secondary">Stop voice</button>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="foot">
+      <p>
+        Air-quality data: Google Air Quality API. Items marked “general guidance” are educational, not
+        measurements and not personal medical advice. For urgent symptoms call your local emergency number.
+      </p>
+    </footer>
+  </body>
+</html>
