@@ -29,8 +29,10 @@ it refuses to start unless `DATABASE_URL`, `GOOGLE_AIR_QUALITY_API_KEY`, an assi
 | Script                                        | What it does                                                                                                              |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `npm run dev` / `build` / `start`             | Develop with reload, compile to `dist/`, run compiled server                                                              |
-| `npm run typecheck` / `lint` / `format:check` | TypeScript strict, ESLint, Prettier                                                                                       |
+| `npm run typecheck` / `lint` / `format:check` | TypeScript strict (server) and checked JS (browser), ESLint with complexity limits, Prettier                              |
 | `npm test`                                    | `node:test` suite against real Postgres (`TEST_DATABASE_URL`, default `postgres://postgres@127.0.0.1:5544/clearair_test`) |
+| `npm run test:coverage`                       | Same suite with coverage thresholds (lines 95%, branches 85%, functions 90%)                                              |
+| `npm run check`                               | Every pre-push check in one command                                                                                       |
 | `npm run test:browser`                        | Playwright flows plus axe accessibility scan, desktop and mobile                                                          |
 | `npm run audit` / `audit:all`                 | `npm audit` for runtime deps (fails on high) / everything                                                                 |
 | `npm run secrets:scan`                        | Offline secret scan (CI also runs gitleaks)                                                                               |
@@ -74,10 +76,12 @@ violation (audio cannot be recalled once played; see limitations).
 
 ## Documentation
 
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): modules, request flow, design decisions and quality gates.
+- [CONTRIBUTING.md](CONTRIBUTING.md): conventions and the checks to run before pushing.
 - [docs/SETUP.md](docs/SETUP.md): Google API enablement, Supabase/Neon, environment variables, deployment.
 - [docs/SECURITY.md](docs/SECURITY.md): threat model, controls and their tests.
 - [docs/TESTING.md](docs/TESTING.md): what is tested, and what is **not verified against live services**.
 
 ## Interface
 
-A menu (top bar on desktop, bottom tabs on phones) switches between Today, Ask & talk, My home, Routines, Indoor air and Community. The page sky follows the verified air-quality category. Accounts (email and password) keep your home across devices. "Ask & talk" has typed questions with suggested prompts and the Gemini Live voice conversation (when `LIVE_AI_ENABLED` and a Gemini key are set). Fonts (Figtree, Fraunces, SIL OFL) are self-hosted in `public/fonts`.
+A menu (top bar on desktop, bottom tabs on phones) switches between Today, Ask & talk, My home, Routines, Plants and Community. The page sky follows the verified air-quality category. Accounts (email and password) keep your home across devices. "Ask & talk" has typed questions with suggested prompts and the Gemini Live voice conversation (when `LIVE_AI_ENABLED` and a Gemini key are set). Fonts (Figtree, Fraunces, SIL OFL) are self-hosted in `public/fonts`.

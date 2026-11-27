@@ -28,6 +28,23 @@ const RULES = [
 ];
 
 const hits = [];
+
+function scanFile(p, rel, name) {
+  if (name.startsWith('.env') && name !== '.env.example') {
+    hits.push([rel, 'A real .env file is present in the tree (must not be committed)', 0]);
+  }
+  let text;
+  try {
+    text = readFileSync(p, 'utf8');
+  } catch {
+    return;
+  }
+  if (text.includes('\u0000')) return; // binary
+  text.split('\n').forEach((line, i) => {
+    for (const [label, re] of RULES) if (re.test(line)) hits.push([rel, label, i + 1]);
+  });
+}
+
 function walk(dir) {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
@@ -35,20 +52,7 @@ function walk(dir) {
     if (SKIP_DIRS.has(name) || SKIP_DIRS.has(rel)) continue;
     const st = statSync(p);
     if (st.isDirectory()) walk(p);
-    else if (st.size < 2_000_000 && !SKIP_FILES.has(name)) {
-      if (name.startsWith('.env') && name !== '.env.example')
-        hits.push([rel, 'A real .env file is present in the tree (must not be committed)', 0]);
-      let text;
-      try {
-        text = readFileSync(p, 'utf8');
-      } catch {
-        continue;
-      }
-      if (text.includes('\u0000')) continue;
-      text.split('\n').forEach((line, i) => {
-        for (const [label, re] of RULES) if (re.test(line)) hits.push([rel, label, i + 1]);
-      });
-    }
+    else if (st.size < 2_000_000 && !SKIP_FILES.has(name)) scanFile(p, rel, name);
   }
 }
 walk(ROOT);

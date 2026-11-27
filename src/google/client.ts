@@ -169,39 +169,49 @@ export class GoogleAirQualityClient {
     endIso: string,
   ): Promise<AirQualityForecast> {
     const byTime = new Map<string, ForecastHour>();
+    const seenTokens = new Set<string>();
     let token: string | undefined;
     let regionCode: string | undefined;
-    const seenTokens = new Set<string>();
     for (let page = 0; page < this.o.maxPages; page++) {
-      const body = buildForecastRequest(q, startIso, endIso, token);
-      const json = await this.post('forecast:lookup', body);
+      const json = await this.post('forecast:lookup', buildForecastRequest(q, startIso, endIso, token));
       const parsed = forecastResponseSchema.safeParse(json);
       if (!parsed.success) throw new UpstreamError('malformed');
       regionCode ??= parsed.data.regionCode;
-      try {
-        for (const raw of parsed.data.hourlyForecasts ?? []) {
-          const hour = normalizeForecastHour(raw);
-          if (hour && !byTime.has(hour.forecastAt)) byTime.set(hour.forecastAt, hour);
-        }
-      } catch (e) {
-        if (e instanceof MalformedResponseError) throw new UpstreamError('malformed');
-        throw e;
-      }
-      const next = parsed.data.nextPageToken;
-      if (!next) break;
-      if (!isValidPageToken(next) || seenTokens.has(next)) throw new UpstreamError('malformed');
-      seenTokens.add(next);
-      token = next;
+      addHours(byTime, parsed.data.hourlyForecasts ?? []);
+      token = nextPageToken(parsed.data.nextPageToken, seenTokens);
+      if (!token) break;
     }
-    const hours = [...byTime.values()].sort((a, b) => a.forecastAt.localeCompare(b.forecastAt));
     const out: AirQualityForecast = {
       source: 'google_air_quality',
       location: { latitude: q.lat, longitude: q.lng },
       fetchedAt: this.o.now().toISOString(),
-      hours,
+      hours: [...byTime.values()].sort((a, b) => a.forecastAt.localeCompare(b.forecastAt)),
       freshness: 'fresh',
     };
     if (regionCode) out.regionCode = regionCode.toUpperCase();
     return out;
   }
+}
+
+/** Normalizes one page of hours, keeping the first value seen for each hour. */
+function addHours(
+  byTime: Map<string, ForecastHour>,
+  raw: Parameters<typeof normalizeForecastHour>[0][],
+): void {
+  try {
+    for (const r of raw) {
+      const hour = normalizeForecastHour(r);
+      if (hour && !byTime.has(hour.forecastAt)) byTime.set(hour.forecastAt, hour);
+    }
+  } catch (e) {
+    throw e instanceof MalformedResponseError ? new UpstreamError('malformed') : e;
+  }
+}
+
+/** The next page token, or undefined at the end. A malformed or repeated token means a broken upstream. */
+function nextPageToken(next: string | undefined, seen: Set<string>): string | undefined {
+  if (!next) return undefined;
+  if (!isValidPageToken(next) || seen.has(next)) throw new UpstreamError('malformed');
+  seen.add(next);
+  return next;
 }

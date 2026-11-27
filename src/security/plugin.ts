@@ -20,10 +20,13 @@ export function allowedOrigins(c: Config): Set<string> {
   return new Set([new URL(c.appOrigin).origin, ...c.corsAllowedOrigins]);
 }
 
-export async function registerSecurity(app: FastifyInstance, config: Config): Promise<void> {
-  const origins = allowedOrigins(config);
-  await app.register(cookie);
+const PERMISSIONS_POLICY =
+  'camera=(), microphone=(self), geolocation=(self), payment=(), usb=(), bluetooth=(), serial=(), display-capture=(), interest-cohort=()';
+const CSRF_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
+const isApi = (url: string) => url.startsWith('/api/') || url === '/health';
 
+/** Strict CSP (no inline script or style), HSTS in production, and no caching of API responses. */
+async function registerHeaders(app: FastifyInstance, config: Config): Promise<void> {
   await app.register(helmet, {
     contentSecurityPolicy: {
       useDefaults: false,
@@ -43,7 +46,7 @@ export async function registerSecurity(app: FastifyInstance, config: Config): Pr
         ...(config.isProduction ? { 'upgrade-insecure-requests': [] } : {}),
       },
     },
-    frameguard: false, // superseded by CSP frame-ancestors, which supports an allowlist for the preview
+    frameguard: false, // superseded by CSP frame-ancestors, which supports an allowlist
     hsts: config.isProduction ? { maxAge: 31536000, includeSubDomains: true, preload: false } : false,
     referrerPolicy: { policy: 'no-referrer' },
     xContentTypeOptions: true,
@@ -51,52 +54,51 @@ export async function registerSecurity(app: FastifyInstance, config: Config): Pr
     crossOriginResourcePolicy: { policy: 'same-origin' },
     xPoweredBy: false,
   });
-
-  app.addHook('onSend', async (_req, reply) => {
-    reply.header(
-      'permissions-policy',
-      'camera=(), microphone=(self), geolocation=(self), payment=(), usb=(), bluetooth=(), serial=(), display-capture=(), interest-cohort=()',
-    );
-    if (_req.url.startsWith('/api/') || _req.url === '/health') reply.header('cache-control', 'no-store');
+  app.addHook('onSend', async (req, reply) => {
+    reply.header('permissions-policy', PERMISSIONS_POLICY);
+    if (isApi(req.url)) reply.header('cache-control', 'no-store');
   });
+}
 
+async function registerCors(app: FastifyInstance, origins: Set<string>): Promise<void> {
   await app.register(cors, {
-    origin: (origin, cb) => {
-      if (!origin) return cb(null, false); // same-origin or non-browser; no CORS headers needed
-      cb(null, origins.has(origin));
-    },
+    // No origin means same-origin or non-browser; no CORS headers are needed.
+    origin: (origin, cb) => cb(null, Boolean(origin) && origins.has(origin!)),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['content-type', CSRF_HEADER],
     maxAge: 600,
   });
+}
 
+/** API traffic only; signed-in users are limited per user, so a shared NAT cannot starve others. */
+async function registerRateLimit(app: FastifyInstance, config: Config): Promise<void> {
   await app.register(rateLimit, {
     global: true,
-    // Only API traffic is limited; static assets are cheap and must never be starved by API bursts.
-    allowList: (req) => !req.url.startsWith('/api/') && req.url !== '/health',
+    allowList: (req) => !isApi(req.url),
     max: 120,
     timeWindow: '1 minute',
-    // Authenticated users are limited per user as well as per IP, so shared NATs cannot starve each other.
     keyGenerator: (req) => verifySession(config.sessionSecret, req.cookies?.[SESSION_COOKIE]) ?? req.ip,
     errorResponseBuilder: () =>
       new AppError('rate_limited', 429, 'Too many requests. Please slow down and try again shortly.'),
   });
+}
 
-  // Issue a CSRF cookie to every client that lacks a valid one.
+/** Double-submit CSRF: every client gets a signed token cookie; API writes must echo it in a header. */
+function registerCsrf(app: FastifyInstance, config: Config, origins: Set<string>): void {
+  const secret = config.sessionSecret;
   app.addHook('onRequest', async (req, reply) => {
     const c = req.cookies?.[CSRF_COOKIE];
-    if (!c || !csrfCheck(config.sessionSecret, c, c)) {
-      const token = newCsrfToken(config.sessionSecret);
-      req.cookies[CSRF_COOKIE] = token;
-      reply.setCookie(CSRF_COOKIE, token, {
-        path: '/',
-        httpOnly: false,
-        secure: config.isProduction,
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 30,
-      });
-    }
+    if (c && csrfCheck(secret, c, c)) return;
+    const token = newCsrfToken(secret);
+    req.cookies[CSRF_COOKIE] = token;
+    reply.setCookie(CSRF_COOKIE, token, {
+      path: '/',
+      httpOnly: false,
+      secure: config.isProduction,
+      sameSite: 'lax',
+      maxAge: CSRF_COOKIE_MAX_AGE,
+    });
   });
 
   app.addHook('preHandler', async (req) => {
@@ -105,14 +107,18 @@ export async function registerSecurity(app: FastifyInstance, config: Config): Pr
     if (origin && !origins.has(origin))
       throw new AppError('csrf_failed', 403, 'Cross-origin request rejected.');
     const header = req.headers[CSRF_HEADER];
-    if (
-      !csrfCheck(
-        config.sessionSecret,
-        req.cookies?.[CSRF_COOKIE],
-        typeof header === 'string' ? header : undefined,
-      )
-    ) {
+    if (!csrfCheck(secret, req.cookies?.[CSRF_COOKIE], typeof header === 'string' ? header : undefined)) {
       throw new AppError('csrf_failed', 403, 'Missing or invalid CSRF token.');
     }
   });
+}
+
+/** Security headers, CORS, rate limiting and CSRF protection for every route. */
+export async function registerSecurity(app: FastifyInstance, config: Config): Promise<void> {
+  const origins = allowedOrigins(config);
+  await app.register(cookie);
+  await registerHeaders(app, config);
+  await registerCors(app, origins);
+  await registerRateLimit(app, config);
+  registerCsrf(app, config, origins);
 }

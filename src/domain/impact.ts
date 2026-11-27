@@ -67,34 +67,52 @@ export function evaluateOption(
   return { exposure, emissions: compare(EMISSIONS_RANK[candidate], EMISSIONS_RANK[current]) };
 }
 
+/** Plain-language notes explaining a trade-off or why exposure cannot be compared. */
+function optionNotes(
+  current: CommuteMode,
+  severity: Severity,
+  exposure: Effect,
+  emissions: Effect,
+): string[] {
+  const notes: string[] = [];
+  if (exposure === 'higher' && emissions === 'lower') {
+    notes.push('Cleaner for emissions, but you may be more exposed on poor-air days.');
+  }
+  if (exposure === 'lower' && emissions === 'higher')
+    notes.push('Lowers your own exposure but adds emissions.');
+  if (current === 'unknown') {
+    notes.push('Add how you usually travel in My home to compare this with your routine.');
+  } else if (exposure === 'unknown') {
+    notes.push(
+      severity === 'unknown'
+        ? 'There is no verified air reading right now, so exposure cannot be compared.'
+        : 'Air is good today, so differences in exposure are not meaningful.',
+    );
+  }
+  return notes;
+}
+
+/** Compares each candidate routine with the current one. Exposure and emissions are kept separate. */
 export function compareRoutines(input: {
   current: CommuteMode;
   candidates: Array<CommuteMode | 'work_from_home'>;
   severity: Severity;
   canWorkFromHome: boolean;
 }): RoutineOption[] {
-  const out: RoutineOption[] = [];
-  for (const c of input.candidates) {
-    if (c === 'work_from_home' && !input.canWorkFromHome) continue;
-    if (c === input.current) continue;
-    const { exposure, emissions } = evaluateOption(input.current, c, input.severity);
-    const notes: string[] = [];
-    if (exposure === 'higher' && emissions === 'lower')
-      notes.push('Cleaner for emissions, but you may be more exposed on poor-air days.');
-    if (exposure === 'lower' && emissions === 'higher')
-      notes.push('Lowers your own exposure but adds emissions.');
-    if (input.current === 'unknown') {
-      notes.push('Add how you usually travel in My home to compare this with your routine.');
-    } else if (exposure === 'unknown') {
-      notes.push(
-        input.severity === 'unknown'
-          ? 'There is no verified air reading right now, so exposure cannot be compared.'
-          : 'Air is good today, so differences in exposure are not meaningful.',
-      );
-    }
-    out.push({ id: c, label: LABELS[c] ?? c, mode: c, exposure, emissions, notes });
-  }
-  return out;
+  const { current, severity } = input;
+  return input.candidates
+    .filter((c) => c !== current && (c !== 'work_from_home' || input.canWorkFromHome))
+    .map((c) => {
+      const { exposure, emissions } = evaluateOption(current, c, severity);
+      return {
+        id: c,
+        label: LABELS[c] ?? c,
+        mode: c,
+        exposure,
+        emissions,
+        notes: optionNotes(current, severity, exposure, emissions),
+      };
+    });
 }
 
 const LABELS: Record<string, string> = {

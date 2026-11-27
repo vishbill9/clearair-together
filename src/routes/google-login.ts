@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { audit, cookieOptions, ensureUser, requireDb, type AppContext } from '../context.js';
@@ -13,6 +13,7 @@ import {
   openTransaction,
   sameSecret,
   sealTransaction,
+  type OAuthTransaction,
 } from '../security/oauth-state.js';
 
 export type OAuthFetch = (url: string, init: RequestInit) => Promise<Response>;
@@ -64,6 +65,112 @@ export function readIdToken(
   return c;
 }
 
+interface GoogleClient {
+  clientId: string;
+  clientSecret: string;
+}
+
+/** A sign-in step failed. `reason` is audited; `error` is the short code shown to the user. */
+class SignInFailure extends Error {
+  constructor(
+    readonly reason: string,
+    readonly error = 'google',
+  ) {
+    super(reason);
+  }
+}
+
+/** Exchanges the one-time code (with the PKCE verifier) for an id_token at Google's token endpoint. */
+async function exchangeCode(
+  fetchImpl: OAuthFetch,
+  client: GoogleClient,
+  grant: { code: string; verifier: string; redirectUri: string },
+): Promise<string> {
+  const res = await fetchImpl(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      code: grant.code,
+      client_id: client.clientId,
+      client_secret: client.clientSecret,
+      redirect_uri: grant.redirectUri,
+      grant_type: 'authorization_code',
+      code_verifier: grant.verifier,
+    }).toString(),
+    signal: AbortSignal.timeout(8000),
+    redirect: 'error',
+  });
+  if (!res.ok) throw new SignInFailure(`token_${res.status}`);
+  return tokenResponse.parse(JSON.parse(await res.text())).id_token;
+}
+
+/** Checks the callback query against the browser's sealed transaction and returns the code and PKCE data. */
+function validateCallback(ctx: AppContext, query: unknown, cookie: string | undefined) {
+  const q = callbackQuery.safeParse(query);
+  if (!q.success) throw new SignInFailure('bad_query');
+  const { code, state, error } = q.data;
+  if (error)
+    throw new SignInFailure(`provider_${error}`, error === 'access_denied' ? 'google_denied' : 'google');
+  const txn = openTransaction(ctx.config.sessionSecret, cookie);
+  if (!txn || !code || !state || !sameSecret(state, txn.state)) throw new SignInFailure('bad_state');
+  return { code, txn };
+}
+
+/**
+ * Finds the account for these Google claims. A known Google id signs in; a matching verified email with no
+ * Google id is linked; otherwise this browser's anonymous user is upgraded in place, keeping its data.
+ */
+async function resolveUser(
+  ctx: AppContext,
+  req: FastifyRequest,
+  reply: FastifyReply,
+  c: GoogleClaims,
+): Promise<string> {
+  const db = requireDb(ctx);
+  const [bySub] = await db.select({ id: users.id }).from(users).where(eq(users.googleSub, c.sub));
+  if (bySub) return bySub.id;
+
+  const email = c.email.toLowerCase();
+  const [byEmail] = await db
+    .select({ id: users.id, sub: users.googleSub })
+    .from(users)
+    .where(eq(users.email, email));
+  if (byEmail) {
+    if (byEmail.sub) throw new SignInFailure('sub_mismatch');
+    await db.update(users).set({ googleSub: c.sub }).where(eq(users.id, byEmail.id));
+    return byEmail.id;
+  }
+
+  const userId = await ensureUser(ctx, req, reply);
+  const [cur] = await db.select({ kind: users.kind }).from(users).where(eq(users.id, userId));
+  if (cur?.kind === 'registered') throw new SignInFailure('already_signed_in', 'google_signed_in');
+  const displayName = (c.given_name ?? c.name ?? '').trim().slice(0, 60) || null;
+  await db
+    .update(users)
+    .set({ kind: 'registered', email, googleSub: c.sub, displayName })
+    .where(eq(users.id, userId));
+  return userId;
+}
+
+/** Google's consent screen URL for this transaction (PKCE S256, state and nonce). */
+function authorizationUrl(clientId: string, redirectUri: string, t: OAuthTransaction): string {
+  const q = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state: t.state,
+    nonce: t.nonce,
+    code_challenge: challengeFor(t.verifier),
+    code_challenge_method: 'S256',
+    prompt: 'select_account',
+  });
+  return `${AUTH_URL}?${q.toString()}`;
+}
+
+const home = (error?: string) => `/${error ? `?auth_error=${error}` : ''}#/today`;
+
+/** "Sign in with Google": OAuth authorization code flow with PKCE, state and nonce. */
 export async function registerGoogleLogin(
   app: FastifyInstance,
   ctx: AppContext,
@@ -76,105 +183,62 @@ export async function registerGoogleLogin(
     secure: ctx.config.isProduction,
     sameSite: 'lax' as const,
   };
-  const home = (error?: string) => `/${error ? `?auth_error=${error}` : ''}#/today`;
-
-  app.get('/api/v1/auth/google/start', async (req, reply) => {
+  const client = (): GoogleClient => {
     const cfg = ctx.config.googleLogin;
     if (!cfg) throw notConfigured('Google sign-in');
+    return cfg;
+  };
+
+  app.get('/api/v1/auth/google/start', async (_req, reply) => {
+    const { clientId } = client();
     const t = newTransaction();
     reply.setCookie(OAUTH_COOKIE, sealTransaction(ctx.config.sessionSecret, t), {
       ...cookieBase,
       maxAge: OAUTH_MAX_AGE_SECONDS,
     });
-    const q = new URLSearchParams({
-      client_id: cfg.clientId,
-      redirect_uri: redirectUri,
-      response_type: 'code',
-      scope: 'openid email profile',
-      state: t.state,
-      nonce: t.nonce,
-      code_challenge: challengeFor(t.verifier),
-      code_challenge_method: 'S256',
-      prompt: 'select_account',
-    });
-    return reply.redirect(`${AUTH_URL}?${q.toString()}`);
+    return reply.redirect(authorizationUrl(clientId, redirectUri, t));
   });
 
   app.get(CALLBACK_PATH, async (req, reply) => {
-    const cfg = ctx.config.googleLogin;
-    if (!cfg) throw notConfigured('Google sign-in');
+    const cfg = client();
     reply.clearCookie(OAUTH_COOKIE, cookieBase);
-    const fail = async (reason: string, error = 'google') => {
-      await audit(ctx, req, { type: 'auth.google_failed', metadata: { reason } });
-      return reply.redirect(home(error));
-    };
-
-    const q = callbackQuery.safeParse(req.query);
-    if (!q.success) return fail('bad_query');
-    if (q.data.error)
-      return fail(`provider_${q.data.error}`, q.data.error === 'access_denied' ? 'google_denied' : 'google');
-    const txn = openTransaction(ctx.config.sessionSecret, req.cookies[OAUTH_COOKIE]);
-    if (!txn || !q.data.code || !q.data.state || !sameSecret(q.data.state, txn.state))
-      return fail('bad_state');
-
-    let claimsOk: GoogleClaims;
     try {
-      const res = await fetchImpl(TOKEN_URL, {
-        method: 'POST',
-        headers: { 'content-type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          code: q.data.code,
-          client_id: cfg.clientId,
-          client_secret: cfg.clientSecret,
-          redirect_uri: redirectUri,
-          grant_type: 'authorization_code',
-          code_verifier: txn.verifier,
-        }).toString(),
-        signal: AbortSignal.timeout(8000),
-        redirect: 'error',
-      });
-      if (!res.ok) return await fail(`token_${res.status}`);
-      const body = tokenResponse.parse(JSON.parse(await res.text()));
-      claimsOk = readIdToken(body.id_token, {
-        clientId: cfg.clientId,
-        nonce: txn.nonce,
-        now: ctx.now().getTime(),
-      });
+      const { code, txn } = validateCallback(ctx, req.query, req.cookies[OAUTH_COOKIE]);
+      const claims = await verifiedClaims(
+        fetchImpl,
+        cfg,
+        { code, verifier: txn.verifier, redirectUri },
+        (idToken) =>
+          readIdToken(idToken, { clientId: cfg.clientId, nonce: txn.nonce, now: ctx.now().getTime() }),
+      );
+      const userId = await resolveUser(ctx, req, reply, claims);
+      await requireDb(ctx).update(users).set({ lastSeenAt: ctx.now() }).where(eq(users.id, userId));
+      reply.setCookie(
+        SESSION_COOKIE,
+        signSession(ctx.config.sessionSecret, userId),
+        cookieOptions(ctx, true),
+      );
+      await audit(ctx, req, { userId, type: 'auth.google_login' });
+      return reply.redirect(home());
     } catch (e) {
-      return fail(`verify_${(e as Error).message.slice(0, 40)}`);
+      if (!(e instanceof SignInFailure)) throw e;
+      await audit(ctx, req, { type: 'auth.google_failed', metadata: { reason: e.reason } });
+      return reply.redirect(home(e.error));
     }
-
-    const db = requireDb(ctx);
-    const display = (claimsOk.given_name ?? claimsOk.name ?? '').trim().slice(0, 60) || null;
-    const email = claimsOk.email.toLowerCase();
-    const [bySub] = await db.select({ id: users.id }).from(users).where(eq(users.googleSub, claimsOk.sub));
-    let userId: string;
-    if (bySub) {
-      userId = bySub.id;
-    } else {
-      const [byEmail] = await db
-        .select({ id: users.id, sub: users.googleSub })
-        .from(users)
-        .where(eq(users.email, email));
-      if (byEmail) {
-        // Same verified email as an existing account: link it so the person keeps their data.
-        if (byEmail.sub) return fail('sub_mismatch');
-        await db.update(users).set({ googleSub: claimsOk.sub }).where(eq(users.id, byEmail.id));
-        userId = byEmail.id;
-      } else {
-        // New to us: upgrade this browser's anonymous user in place, keeping anything already saved.
-        userId = await ensureUser(ctx, req, reply);
-        const [cur] = await db.select({ kind: users.kind }).from(users).where(eq(users.id, userId));
-        if (cur?.kind === 'registered') return fail('already_signed_in', 'google_signed_in');
-        await db
-          .update(users)
-          .set({ kind: 'registered', email, googleSub: claimsOk.sub, displayName: display })
-          .where(eq(users.id, userId));
-      }
-    }
-    await db.update(users).set({ lastSeenAt: ctx.now() }).where(eq(users.id, userId));
-    reply.setCookie(SESSION_COOKIE, signSession(ctx.config.sessionSecret, userId), cookieOptions(ctx, true));
-    await audit(ctx, req, { userId, type: 'auth.google_login' });
-    return reply.redirect(home());
   });
+}
+
+/** Token exchange plus id_token checks; any failure becomes a `verify_*` sign-in failure. */
+async function verifiedClaims(
+  fetchImpl: OAuthFetch,
+  client: GoogleClient,
+  grant: { code: string; verifier: string; redirectUri: string },
+  read: (idToken: string) => GoogleClaims,
+): Promise<GoogleClaims> {
+  try {
+    return read(await exchangeCode(fetchImpl, client, grant));
+  } catch (e) {
+    if (e instanceof SignInFailure) throw e;
+    throw new SignInFailure(`verify_${(e as Error).message.slice(0, 40)}`);
+  }
 }

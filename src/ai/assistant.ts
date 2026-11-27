@@ -102,6 +102,25 @@ export function extractJson(raw: string): unknown {
   }
 }
 
+export interface AssistantInput {
+  message: string;
+  aq: AirQualityResult;
+  household: HouseholdContext | null;
+  regionCode?: string | null;
+}
+
+const STATUS_NOTICES: Partial<Record<AirQualityResult['status'], string>> = {
+  unavailable: 'Live air-quality data is not available right now, so this is general guidance only.',
+  not_configured: 'Live air-quality data is not available right now, so this is general guidance only.',
+  stale: 'Air-quality data is stale and may not reflect current conditions.',
+};
+
+/** When data is stale or missing, the answer always says so, whatever the model wrote. */
+function withStatusNotice(out: AssistantOutput, status: AirQualityResult['status']): AssistantOutput {
+  const notice = STATUS_NOTICES[status];
+  return notice ? { ...out, safetyNotice: out.safetyNotice ?? notice } : { ...out };
+}
+
 export class AssistantService {
   constructor(
     private readonly provider: AiProvider | null,
@@ -112,35 +131,14 @@ export class AssistantService {
     return this.provider !== null;
   }
 
-  async answer(input: {
-    message: string;
-    aq: AirQualityResult;
-    household: HouseholdContext | null;
-    regionCode?: string | null;
-  }): Promise<AssistantResult> {
+  async answer(input: AssistantInput): Promise<AssistantResult> {
     // Emergency wording is handled deterministically and never reaches the model.
     if (isEmergencyMessage(input.message)) {
-      return {
-        kind: 'emergency',
-        response: emergencyResponse(
-          input.regionCode ?? input.household?.countryCode ?? input.aq.snapshot?.regionCode,
-        ),
-      };
+      const region = input.regionCode ?? input.household?.countryCode ?? input.aq.snapshot?.regionCode;
+      return { kind: 'emergency', response: emergencyResponse(region) };
     }
-    if (!this.provider) throw new AiProviderError('auth'); // route maps "no provider" to not_configured before calling
-    const now = (this.opts.now ?? (() => new Date()))();
-    const user = `<verified_context>\n${buildVerifiedContext({ aq: input.aq, household: input.household, now })}\n</verified_context>\n<user_question>\n${input.message.replace(/<\/?user_question>/gi, '')}\n</user_question>`;
-
-    const raw = await this.provider.generate({
-      system: SYSTEM,
-      user,
-      maxTokens: 900,
-      timeoutMs: this.opts.timeoutMs ?? 20000,
-    });
-    const parsed = assistantOutputSchema.safeParse(extractJson(raw));
-    if (!parsed.success) throw new AiProviderError('bad_response');
-
-    const violations: Violation[] = checkAssistantOutput(parsed.data, {
+    const output = await this.ask(input);
+    const violations = checkAssistantOutput(output, {
       snapshot: input.aq.snapshot,
       allowedSourceIds: APPROVED_SOURCE_IDS,
     });
@@ -150,19 +148,31 @@ export class AssistantService {
         blocked: true,
         output: blockedFallback(Boolean(input.aq.snapshot)),
         airQualityStatus: input.aq.status,
-        violations: [...new Set(violations.map((v) => v.rule))],
+        violations: [...new Set(violations.map((v: Violation) => v.rule))],
       };
     }
-    // When data is stale/unavailable, make that visible in the answer regardless of what the model said.
-    const out = { ...parsed.data };
-    if (input.aq.status === 'unavailable' || input.aq.status === 'not_configured') {
-      out.safetyNotice =
-        out.safetyNotice ??
-        'Live air-quality data is not available right now, so this is general guidance only.';
-    } else if (input.aq.status === 'stale') {
-      out.safetyNotice =
-        out.safetyNotice ?? 'Air-quality data is stale and may not reflect current conditions.';
-    }
-    return { kind: 'answer', blocked: false, output: out, airQualityStatus: input.aq.status };
+    return {
+      kind: 'answer',
+      blocked: false,
+      output: withStatusNotice(output, input.aq.status),
+      airQualityStatus: input.aq.status,
+    };
+  }
+
+  /** Sends the verified context and the question to the model and returns its schema-valid answer. */
+  private async ask(input: AssistantInput): Promise<AssistantOutput> {
+    if (!this.provider) throw new AiProviderError('auth'); // routes map "no provider" to not_configured first
+    const now = (this.opts.now ?? (() => new Date()))();
+    const context = buildVerifiedContext({ aq: input.aq, household: input.household, now });
+    const question = input.message.replace(/<\/?user_question>/gi, '');
+    const raw = await this.provider.generate({
+      system: SYSTEM,
+      user: `<verified_context>\n${context}\n</verified_context>\n<user_question>\n${question}\n</user_question>`,
+      maxTokens: 900,
+      timeoutMs: this.opts.timeoutMs ?? 20000,
+    });
+    const parsed = assistantOutputSchema.safeParse(extractJson(raw));
+    if (!parsed.success) throw new AiProviderError('bad_response');
+    return parsed.data;
   }
 }

@@ -3,28 +3,22 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
 import fastifyStatic from '@fastify/static';
-import { ZodError } from 'zod';
 import type { Config } from './config.js';
+import type { AppContext } from './context.js';
 import type { DbHandle } from './db/client.js';
-import { AppError } from './errors.js';
-import { fail } from './envelope.js';
+import { registerErrorHandlers } from './error-handler.js';
 import { createLogger } from './logger.js';
+import { AssistantService } from './ai/assistant.js';
+import type { AiProvider } from './ai/provider.js';
+import { assistantProvider, plantChatProvider } from './ai/providers.js';
 import { GoogleAirQualityClient, type FetchLike } from './google/client.js';
 import { AirQualityService } from './google/service.js';
-import { AnthropicProvider } from './ai/anthropic.js';
-import { OllamaProvider } from './ai/ollama.js';
-import type { AiProvider, AiProviderError } from './ai/provider.js';
-import { AssistantService } from './ai/assistant.js';
-import { registerSecurity } from './security/plugin.js';
+import { defaultUpstream, registerLive, type UpstreamFactory } from './live/voice.js';
 import { registerApi } from './routes/api.js';
 import { registerAuth } from './routes/auth.js';
-import { registerPlants } from './routes/plants.js';
-import { FallbackProvider } from './ai/fallback.js';
-import { GeminiTextProvider } from './ai/gemini-text.js';
-import { PLANT_RESPONSE_SCHEMA } from './plants/chat.js';
 import { registerGoogleLogin, type OAuthFetch } from './routes/google-login.js';
-import { registerLive, defaultUpstream, type UpstreamFactory } from './live/voice.js';
-import type { AppContext } from './context.js';
+import { registerPlants } from './routes/plants.js';
+import { registerSecurity } from './security/plugin.js';
 
 export interface AppDeps {
   config: Config;
@@ -39,15 +33,14 @@ export interface AppDeps {
   now?: () => Date;
 }
 
+/** A test seam wins when given (even `null`); otherwise the production value is built. */
+const seam = <T>(override: T | undefined, build: () => T): T => (override !== undefined ? override : build());
+
 const PUBLIC_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 
-export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; ctx: AppContext }> {
-  const { config } = deps;
-  const now = deps.now ?? (() => new Date());
-  const logger = createLogger(config.logLevel, deps.logDestination);
-
-  const app = Fastify({
-    loggerInstance: logger,
+function createServer(config: Config, logDestination?: NodeJS.WritableStream): FastifyInstance {
+  return Fastify({
+    loggerInstance: createLogger(config.logLevel, logDestination),
     genReqId: () => randomUUID(), // never trust a client-supplied id
     requestIdHeader: false,
     bodyLimit: 64 * 1024,
@@ -56,7 +49,11 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     trustProxy: config.trustProxy,
     ajv: { customOptions: { removeAdditional: false } },
   }) as unknown as FastifyInstance;
+}
 
+function createContext(deps: AppDeps, provider: AiProvider | null): AppContext {
+  const { config } = deps;
+  const now = deps.now ?? (() => new Date());
   const google = config.google.apiKey
     ? GoogleAirQualityClient.fromConfig(config, deps.googleFetch ? { fetchImpl: deps.googleFetch } : {})
     : null;
@@ -67,133 +64,56 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     staleMaxSeconds: config.airQuality.staleMaxSeconds,
     now,
   });
-  const provider: AiProvider | null =
-    deps.aiProvider !== undefined
-      ? deps.aiProvider
-      : config.aiProvider === 'ollama' && config.ollama.apiKey
-        ? new OllamaProvider({
-            apiKey: config.ollama.apiKey,
-            model: config.ollama.model,
-            baseUrl: config.ollama.baseUrl,
-          })
-        : config.aiProvider === 'anthropic' && config.anthropicApiKey
-          ? new AnthropicProvider({ apiKey: config.anthropicApiKey, model: config.aiModel })
-          : null;
-  const assistant = new AssistantService(provider, { now });
-  const ctx: AppContext = { config, dbh: deps.dbh, aq, assistant, now };
+  return { config, dbh: deps.dbh, aq, assistant: new AssistantService(provider, { now }), now };
+}
 
-  await registerSecurity(app, config);
-
-  app.addHook('onSend', async (req, reply) => {
-    reply.header('x-request-id', req.id);
-  });
-
-  app.setErrorHandler((err, req, reply) => {
-    if (err instanceof AppError) {
-      if (err.status >= 500) req.log.error({ code: err.code }, err.message);
-      return reply.code(err.status).send(
-        fail(req.id, {
-          code: err.code,
-          message: err.message,
-          ...(err.details ? { details: err.details } : {}),
-        }),
-      );
-    }
-    if (err instanceof ZodError) {
-      return reply
-        .code(400)
-        .send(fail(req.id, { code: 'validation_error', message: 'The request was not valid.' }));
-    }
-    const e = err as { statusCode?: number; code?: string };
-    const status = e.statusCode ?? 500;
-    if (status === 429)
-      return reply.code(429).send(
-        fail(req.id, {
-          code: 'rate_limited',
-          message: 'Too many requests. Please slow down and try again shortly.',
-        }),
-      );
-    if (status === 413 || e.code === 'FST_ERR_CTP_BODY_TOO_LARGE')
-      return reply
-        .code(413)
-        .send(fail(req.id, { code: 'payload_too_large', message: 'The request body is too large.' }));
-    if (status === 415)
-      return reply
-        .code(415)
-        .send(fail(req.id, { code: 'unsupported_media_type', message: 'Unsupported content type.' }));
-    if (status >= 400 && status < 500)
-      return reply
-        .code(status)
-        .send(fail(req.id, { code: 'validation_error', message: 'The request could not be processed.' }));
-    // Unknown error: log internally, never leak details.
-    req.log.error({ err: { message: (err as Error).message, name: (err as Error).name } }, 'unhandled error');
-    return reply
-      .code(500)
-      .send(fail(req.id, { code: 'internal_error', message: 'Something went wrong on our side.' }));
-  });
-
-  app.setNotFoundHandler((req, reply) => {
-    if (req.url.startsWith('/api/'))
-      return reply.code(404).send(fail(req.id, { code: 'not_found', message: 'Not found.' }));
-    return reply.code(404).type('text/plain').send('Not found');
-  });
-
-  const plantProvider: AiProvider | null =
-    deps.plantProvider !== undefined
-      ? deps.plantProvider
-      : config.live.geminiApiKey && config.live.chatModel
-        ? withAssistantFallback(
-            new GeminiTextProvider({
-              apiKey: config.live.geminiApiKey,
-              model: config.live.chatModel,
-              responseSchema: PLANT_RESPONSE_SCHEMA,
-            }),
-            provider,
-            (e) =>
-              app.log.warn({ kind: e.kind, detail: e.detail }, 'plant chat falling back to assistant model'),
-          )
-        : null;
-  await registerApi(app, ctx);
-  await registerPlants(app, ctx, plantProvider);
-  await registerAuth(app, ctx);
-  await registerGoogleLogin(app, ctx, deps.oauthFetch);
-  await registerLive(
-    app,
-    ctx,
-    deps.liveUpstream !== undefined ? deps.liveUpstream : config.live.enabled ? defaultUpstream : null,
-  );
-
+/**
+ * HTML, CSS and JS revalidate on every load (ETag), so a deploy never pairs a page with old styles or
+ * scripts. Fonts are versioned by file name and cached for a year.
+ */
+async function registerStatic(app: FastifyInstance): Promise<void> {
   await app.register(fastifyStatic, {
     root: PUBLIC_DIR,
     prefix: '/',
     index: ['index.html'],
     wildcard: false,
     decorateReply: false,
-    // HTML/CSS/JS revalidate on every load (ETag), so a deploy can never leave a page paired with old
-    // styles or scripts. Fonts are versioned by file name and cached for a year.
+    dotfiles: 'deny',
     setHeaders: (res, filePath) => {
       res.header(
         'cache-control',
         filePath.includes('/fonts/') ? 'public, max-age=31536000, immutable' : 'no-cache',
       );
     },
-    dotfiles: 'deny',
   });
+}
 
+/** Composition root: builds every service from config (or test seams) and registers all routes. */
+export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; ctx: AppContext }> {
+  const { config } = deps;
+  const app = createServer(config, deps.logDestination);
+  const provider = seam(deps.aiProvider, () => assistantProvider(config));
+  const ctx = createContext(deps, provider);
+  const plantProvider = seam(deps.plantProvider, () =>
+    plantChatProvider(config, provider, (e) =>
+      app.log.warn({ kind: e.kind, detail: e.detail }, 'plant chat falling back to assistant model'),
+    ),
+  );
+  const upstream = seam(deps.liveUpstream, () => (config.live.enabled ? defaultUpstream : null));
+
+  await registerSecurity(app, config);
+  app.addHook('onSend', async (req, reply) => {
+    reply.header('x-request-id', req.id);
+  });
+  registerErrorHandlers(app);
+  await registerApi(app, ctx);
+  await registerPlants(app, ctx, plantProvider);
+  await registerAuth(app, ctx);
+  await registerGoogleLogin(app, ctx, deps.oauthFetch);
+  await registerLive(app, ctx, upstream);
+  await registerStatic(app);
   app.addHook('onClose', async () => {
     await deps.dbh?.close();
   });
-
   return { app, ctx };
-}
-
-/** Gemini answers first; when it fails or is slow, the assistant model (if any) answers instead. */
-function withAssistantFallback(
-  primary: AiProvider,
-  assistant: AiProvider | null,
-  onFallback: (e: AiProviderError) => void,
-): AiProvider {
-  return assistant
-    ? new FallbackProvider(primary, assistant, { primaryTimeoutMs: 12_000, onFallback })
-    : primary;
 }

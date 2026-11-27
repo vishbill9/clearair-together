@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 
 const bool = z
@@ -93,93 +94,92 @@ export class ConfigError extends Error {}
 const DEV_SESSION_SECRET_MESSAGE =
   'SESSION_SECRET is not set; using a random per-process secret (development only).';
 
-export function loadConfig(
-  source: NodeJS.ProcessEnv = process.env,
-  warn: (m: string) => void = () => {},
-): Config {
+type Env = z.infer<typeof envSchema>;
+type AiProviderName = 'ollama' | 'anthropic';
+
+function parseEnv(source: NodeJS.ProcessEnv): Env {
   const parsed = envSchema.safeParse(source);
-  if (!parsed.success) {
-    const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
-    throw new ConfigError(`Invalid environment configuration: ${issues}`);
-  }
-  const e = parsed.data;
-  const isProduction = e.NODE_ENV === 'production';
-  if (Boolean(e.GOOGLE_OAUTH_CLIENT_ID) !== Boolean(e.GOOGLE_OAUTH_CLIENT_SECRET)) {
-    throw new ConfigError('Set both GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET, or neither.');
-  }
-  const aiProvider: 'ollama' | 'anthropic' | null =
-    e.AI_PROVIDER === 'anthropic'
-      ? e.ANTHROPIC_API_KEY
-        ? 'anthropic'
-        : null
-      : e.AI_PROVIDER === 'ollama'
-        ? e.OLLAMA_API_KEY
-          ? 'ollama'
-          : null
-        : e.OLLAMA_API_KEY
-          ? 'ollama'
-          : e.ANTHROPIC_API_KEY
-            ? 'anthropic'
-            : null;
+  if (parsed.success) return parsed.data;
+  const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
+  throw new ConfigError(`Invalid environment configuration: ${issues}`);
+}
 
-  if (isProduction) {
-    const missing: string[] = [];
-    if (!e.DATABASE_URL) missing.push('DATABASE_URL');
-    if (!e.GOOGLE_AIR_QUALITY_API_KEY) missing.push('GOOGLE_AIR_QUALITY_API_KEY');
-    if (!e.ANTHROPIC_API_KEY && !e.OLLAMA_API_KEY) missing.push('OLLAMA_API_KEY (or ANTHROPIC_API_KEY)');
-    if (e.AI_PROVIDER === 'ollama' && !e.OLLAMA_API_KEY) missing.push('OLLAMA_API_KEY');
-    if (e.AI_PROVIDER === 'anthropic' && !e.ANTHROPIC_API_KEY) missing.push('ANTHROPIC_API_KEY');
-    if (!e.SESSION_SECRET) missing.push('SESSION_SECRET');
-    if (e.LIVE_AI_ENABLED) {
-      if (!e.GOOGLE_GEMINI_API_KEY) missing.push('GOOGLE_GEMINI_API_KEY');
-      if (!e.GOOGLE_GEMINI_LIVE_MODEL) missing.push('GOOGLE_GEMINI_LIVE_MODEL');
-    }
-    if (missing.length)
-      throw new ConfigError(`Missing required production configuration: ${missing.join(', ')}`);
-    if (e.SESSION_SECRET && e.SESSION_SECRET.length < 32) {
-      throw new ConfigError('SESSION_SECRET must be at least 32 characters in production.');
-    }
-    if (new URL(e.APP_ORIGIN).protocol !== 'https:') {
-      throw new ConfigError('APP_ORIGIN must use https in production.');
-    }
-    if (new URL(e.GOOGLE_AIR_QUALITY_BASE_URL).host !== 'airquality.googleapis.com') {
-      throw new ConfigError('GOOGLE_AIR_QUALITY_BASE_URL may only be overridden outside production.');
-    }
+/** An explicit AI_PROVIDER wins; otherwise Ollama is preferred when both keys are set. */
+export function chooseAiProvider(
+  e: Partial<Pick<Env, 'AI_PROVIDER' | 'OLLAMA_API_KEY' | 'ANTHROPIC_API_KEY'>>,
+): AiProviderName | null {
+  const available: Record<AiProviderName, boolean> = {
+    ollama: Boolean(e.OLLAMA_API_KEY),
+    anthropic: Boolean(e.ANTHROPIC_API_KEY),
+  };
+  if (e.AI_PROVIDER) return available[e.AI_PROVIDER] ? e.AI_PROVIDER : null;
+  return (['ollama', 'anthropic'] as const).find((p) => available[p]) ?? null;
+}
+
+/** Keys production cannot start without; each entry names what to set. */
+function missingProductionKeys(e: Env): string[] {
+  const required: Array<[boolean, string]> = [
+    [!e.DATABASE_URL, 'DATABASE_URL'],
+    [!e.GOOGLE_AIR_QUALITY_API_KEY, 'GOOGLE_AIR_QUALITY_API_KEY'],
+    [!e.ANTHROPIC_API_KEY && !e.OLLAMA_API_KEY, 'OLLAMA_API_KEY (or ANTHROPIC_API_KEY)'],
+    [e.AI_PROVIDER === 'ollama' && !e.OLLAMA_API_KEY, 'OLLAMA_API_KEY'],
+    [e.AI_PROVIDER === 'anthropic' && !e.ANTHROPIC_API_KEY, 'ANTHROPIC_API_KEY'],
+    [!e.SESSION_SECRET, 'SESSION_SECRET'],
+    [e.LIVE_AI_ENABLED && !e.GOOGLE_GEMINI_API_KEY, 'GOOGLE_GEMINI_API_KEY'],
+    [e.LIVE_AI_ENABLED && !e.GOOGLE_GEMINI_LIVE_MODEL, 'GOOGLE_GEMINI_LIVE_MODEL'],
+  ];
+  return required.filter(([isMissing]) => isMissing).map(([, key]) => key);
+}
+
+/** Production fails fast rather than running half-configured or with unsafe overrides. */
+function assertProductionReady(e: Env): void {
+  const missing = missingProductionKeys(e);
+  if (missing.length)
+    throw new ConfigError(`Missing required production configuration: ${missing.join(', ')}`);
+  if (e.SESSION_SECRET && e.SESSION_SECRET.length < 32) {
+    throw new ConfigError('SESSION_SECRET must be at least 32 characters in production.');
   }
-
-  let sessionSecret = e.SESSION_SECRET;
-  if (!sessionSecret) {
-    warn(DEV_SESSION_SECRET_MESSAGE);
-    sessionSecret = cryptoRandom();
+  if (new URL(e.APP_ORIGIN).protocol !== 'https:') {
+    throw new ConfigError('APP_ORIGIN must use https in production.');
   }
+  if (new URL(e.GOOGLE_AIR_QUALITY_BASE_URL).host !== 'airquality.googleapis.com') {
+    throw new ConfigError('GOOGLE_AIR_QUALITY_BASE_URL may only be overridden outside production.');
+  }
+}
 
-  const splitList = (v: string) =>
-    v
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
+const splitList = (v: string) =>
+  v
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 
+const trimSlash = (url: string) => url.replace(/\/$/, '');
+
+function integrationFlags(e: Env, aiProvider: AiProviderName | null): Config['integrations'] {
+  return {
+    database: Boolean(e.DATABASE_URL),
+    googleAirQuality: Boolean(e.GOOGLE_AIR_QUALITY_API_KEY),
+    googleLogin: Boolean(e.GOOGLE_OAUTH_CLIENT_ID && e.GOOGLE_OAUTH_CLIENT_SECRET),
+    assistant: aiProvider !== null,
+    live: e.LIVE_AI_ENABLED && Boolean(e.GOOGLE_GEMINI_API_KEY && e.GOOGLE_GEMINI_LIVE_MODEL),
+    plantChat: Boolean(e.GOOGLE_GEMINI_API_KEY && e.GOOGLE_GEMINI_CHAT_MODEL),
+  };
+}
+
+function buildConfig(e: Env, sessionSecret: string): Config {
+  const aiProvider = chooseAiProvider(e);
+  const { GOOGLE_OAUTH_CLIENT_ID: clientId, GOOGLE_OAUTH_CLIENT_SECRET: clientSecret } = e;
   return {
     env: e.NODE_ENV,
-    isProduction,
+    isProduction: e.NODE_ENV === 'production',
     port: e.PORT,
     appOrigin: new URL(e.APP_ORIGIN).origin,
-    googleLogin:
-      e.GOOGLE_OAUTH_CLIENT_ID && e.GOOGLE_OAUTH_CLIENT_SECRET
-        ? { clientId: e.GOOGLE_OAUTH_CLIENT_ID, clientSecret: e.GOOGLE_OAUTH_CLIENT_SECRET }
-        : null,
+    googleLogin: clientId && clientSecret ? { clientId, clientSecret } : null,
     databaseUrl: e.DATABASE_URL,
-    google: {
-      apiKey: e.GOOGLE_AIR_QUALITY_API_KEY,
-      baseUrl: e.GOOGLE_AIR_QUALITY_BASE_URL.replace(/\/$/, ''),
-    },
+    google: { apiKey: e.GOOGLE_AIR_QUALITY_API_KEY, baseUrl: trimSlash(e.GOOGLE_AIR_QUALITY_BASE_URL) },
     anthropicApiKey: e.ANTHROPIC_API_KEY,
-    ollama: {
-      apiKey: e.OLLAMA_API_KEY,
-      model: e.OLLAMA_MODEL,
-      baseUrl: e.OLLAMA_BASE_URL.replace(/\/$/, ''),
-    },
-    aiProvider: aiProvider,
+    ollama: { apiKey: e.OLLAMA_API_KEY, model: e.OLLAMA_MODEL, baseUrl: trimSlash(e.OLLAMA_BASE_URL) },
+    aiProvider,
     sessionSecret,
     aiModel: e.AI_MODEL,
     airQuality: {
@@ -199,18 +199,21 @@ export function loadConfig(
       maxSessionSeconds: e.MAX_LIVE_SESSION_SECONDS,
       idleTimeoutSeconds: e.LIVE_IDLE_TIMEOUT_SECONDS,
     },
-    integrations: {
-      database: Boolean(e.DATABASE_URL),
-      googleAirQuality: Boolean(e.GOOGLE_AIR_QUALITY_API_KEY),
-      googleLogin: Boolean(e.GOOGLE_OAUTH_CLIENT_ID && e.GOOGLE_OAUTH_CLIENT_SECRET),
-      assistant: aiProvider !== null,
-      live: e.LIVE_AI_ENABLED && Boolean(e.GOOGLE_GEMINI_API_KEY && e.GOOGLE_GEMINI_LIVE_MODEL),
-      plantChat: Boolean(e.GOOGLE_GEMINI_API_KEY && e.GOOGLE_GEMINI_CHAT_MODEL),
-    },
+    integrations: integrationFlags(e, aiProvider),
   };
 }
 
-import { randomBytes } from 'node:crypto';
-function cryptoRandom(): string {
-  return randomBytes(48).toString('base64url');
+/** Reads and validates the environment once at start-up. Throws `ConfigError` with a clear message. */
+export function loadConfig(
+  source: NodeJS.ProcessEnv = process.env,
+  warn: (m: string) => void = () => {},
+): Config {
+  const e = parseEnv(source);
+  if (Boolean(e.GOOGLE_OAUTH_CLIENT_ID) !== Boolean(e.GOOGLE_OAUTH_CLIENT_SECRET)) {
+    throw new ConfigError('Set both GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET, or neither.');
+  }
+  if (e.NODE_ENV === 'production') assertProductionReady(e);
+  if (e.SESSION_SECRET) return buildConfig(e, e.SESSION_SECRET);
+  warn(DEV_SESSION_SECRET_MESSAGE);
+  return buildConfig(e, randomBytes(48).toString('base64url'));
 }

@@ -1,4 +1,4 @@
-import { $, clear, h, show } from './dom.js';
+import { $, $$, clear, h, show } from './dom.js';
 import { api, ApiError } from './api.js';
 
 const LIGHT_TEXT = { low: 'Low light', medium: 'Medium light', bright: 'Bright light' };
@@ -116,8 +116,7 @@ export async function initPlants({ chatOn }) {
     e.preventDefault();
     void ask($('plantchat-input').value);
   });
-  for (const c of document.querySelectorAll('.chip[data-pq]'))
-    c.addEventListener('click', () => void ask(c.dataset.pq));
+  for (const c of $$('.chip[data-pq]')) c.addEventListener('click', () => void ask(c.dataset.pq));
   try {
     plants = (await api('GET', '/api/v1/plants')).plants;
     render();

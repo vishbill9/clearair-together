@@ -2,13 +2,16 @@
 
 ## What runs
 
-- `npm test`: 151 `node:test` tests on **real PostgreSQL**, one temporary database per file. Stubs replace every outside
+- `npm test`: 167 `node:test` tests on **real PostgreSQL**, one temporary database per file. Stubs replace every outside
   service. Files: Google request building, normalization and pagination (`google-client`), freshness states
   (`google-service`), AI schema and safety policy (`ai-safety`, `assistant-api`), plant chat and its safety rules
   (`plants`), provider fallback (`fallback`), accounts (`auth`), Google sign-in (`google-login`), authorization
   isolation and household flows (`api`), security headers, CORS, CSRF, rate limits and redaction (`security`),
   configuration rules (`config`), emissions versus exposure logic (`domain`), community k-anonymity
-  (`community-db`), and the live-voice proxy against a local fake Gemini WebSocket server (`live`).
+  (`community-db`), the live-voice proxy against a local fake Gemini WebSocket server (`live`), and provider selection,
+  HTTP error mapping, public error mapping, forecast windows, severity bands and plan rules (`units`).
+- `npm run test:coverage`: the same suite with enforced thresholds. Current coverage of `src/`: 98.5% of lines,
+  90.5% of branches, 93.7% of functions.
 - `npm run test:browser`: 15 Playwright tests on desktop and mobile (30 runs): location, real-data status and provenance,
   unavailable state, household and routine comparison, assistant, community suppression, keys kept out of the browser,
   axe (WCAG 2 A/AA), keyboard order, 360px width, sign-up and sign-in, menu and sky, Google button states, plants.

@@ -61,15 +61,17 @@ function toUtcIso(value: string): string {
   return new Date(ms).toISOString();
 }
 
+/** The numeric AQI, falling back to the number in the display string. Never invents a value. */
+function indexValue(i: z.infer<typeof indexSchema>): number | undefined {
+  const fromDisplay = i.aqiDisplay ? /\d+(\.\d+)?/.exec(i.aqiDisplay)?.[0] : undefined;
+  const aqi = i.aqi ?? (fromDisplay === undefined ? undefined : Number(fromDisplay));
+  return aqi !== undefined && Number.isFinite(aqi) ? aqi : undefined;
+}
+
 function normalizeIndexes(raw: z.infer<typeof indexSchema>[] | undefined): AirQualityIndex[] {
-  const out: AirQualityIndex[] = [];
-  for (const i of raw ?? []) {
-    let aqi = i.aqi;
-    if (aqi === undefined && i.aqiDisplay) {
-      const m = /\d+(\.\d+)?/.exec(i.aqiDisplay);
-      if (m) aqi = Number(m[0]);
-    }
-    if (aqi === undefined || !Number.isFinite(aqi)) continue; // never invent a value
+  return (raw ?? []).flatMap((i) => {
+    const aqi = indexValue(i);
+    if (aqi === undefined) return [];
     const entry: AirQualityIndex = {
       code: i.code,
       displayName: i.displayName ?? i.code,
@@ -77,9 +79,8 @@ function normalizeIndexes(raw: z.infer<typeof indexSchema>[] | undefined): AirQu
       category: i.category ?? 'Unknown',
     };
     if (i.dominantPollutant) entry.dominantPollutant = i.dominantPollutant;
-    out.push(entry);
-  }
-  return out;
+    return [entry];
+  });
 }
 
 function normalizePollutants(raw: z.infer<typeof pollutantSchema>[] | undefined): Pollutant[] {

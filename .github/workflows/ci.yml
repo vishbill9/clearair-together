@@ -43,7 +43,8 @@ jobs:
         run: npm run audit
       - name: Dependency audit (all, informational)
         run: npm run audit:all || true
-      - run: npm test
+      - name: Unit and integration tests with coverage thresholds
+        run: npm run test:coverage
       - run: npm run build
       - name: Install browsers
         run: npx playwright install --with-deps chromium

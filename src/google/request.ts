@@ -10,6 +10,7 @@ const ALLOWED_EXTRA_COMPUTATIONS = [
 ] as const;
 
 const FORECAST_HORIZON_HOURS = 96;
+const HOUR_MS = 3_600_000;
 const COORDINATE_DECIMALS = 2;
 
 const languageCodeSchema = z
@@ -66,33 +67,29 @@ export function forecastQuerySchema(maxHours: number, now: () => Date = () => ne
     })
     .strict()
     .superRefine((v, ctx) => {
-      if ((v.start && !v.end) || (!v.start && v.end)) {
+      if (Boolean(v.start) !== Boolean(v.end)) {
         ctx.addIssue({ code: 'custom', message: 'start and end must be provided together', path: ['end'] });
         return;
       }
       if (!v.start || !v.end) return;
-      const start = Date.parse(v.start);
-      const end = Date.parse(v.end);
-      if (end <= start) ctx.addIssue({ code: 'custom', message: 'end must be after start', path: ['end'] });
-      if ((end - start) / 3_600_000 > maxHours) {
-        ctx.addIssue({
-          code: 'custom',
-          message: `the window may not exceed ${maxHours} hours`,
-          path: ['end'],
-        });
-      }
-      const horizon = now().getTime() + FORECAST_HORIZON_HOURS * 3_600_000;
-      if (end > horizon) {
-        ctx.addIssue({
-          code: 'custom',
-          message: `forecasts reach at most ${FORECAST_HORIZON_HOURS} hours ahead`,
-          path: ['end'],
-        });
-      }
-      if (start < now().getTime() - 3_600_000) {
-        ctx.addIssue({ code: 'custom', message: 'start may not be in the past', path: ['start'] });
+      for (const issue of windowIssues(Date.parse(v.start), Date.parse(v.end), maxHours, now().getTime())) {
+        ctx.addIssue({ code: 'custom', ...issue });
       }
     });
+}
+
+/** Problems with a requested forecast window, as messages tied to the field to fix. */
+function windowIssues(start: number, end: number, maxHours: number, now: number) {
+  const issues: Array<{ message: string; path: string[] }> = [];
+  if (end <= start) issues.push({ message: 'end must be after start', path: ['end'] });
+  if ((end - start) / HOUR_MS > maxHours) {
+    issues.push({ message: `the window may not exceed ${maxHours} hours`, path: ['end'] });
+  }
+  if (end > now + FORECAST_HORIZON_HOURS * HOUR_MS) {
+    issues.push({ message: `forecasts reach at most ${FORECAST_HORIZON_HOURS} hours ahead`, path: ['end'] });
+  }
+  if (start < now - HOUR_MS) issues.push({ message: 'start may not be in the past', path: ['start'] });
+  return issues;
 }
 
 export interface CurrentConditionsRequest {

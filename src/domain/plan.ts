@@ -49,104 +49,90 @@ function sensitiveMembers(h: PlanHousehold | null): boolean {
   );
 }
 
-export function buildDailyPlan(aq: AirQualityResult, household: PlanHousehold | null): DailyPlan {
-  const c = household?.constraints ?? null;
-  const items: PlanItem[] = [];
-  const quick: PlanItem[] = [];
-  const hasData = aq.snapshot !== null;
-  const severity = aq.snapshot ? overallSeverity(aq.snapshot) : 'unknown';
-  const sensitive = sensitiveMembers(household);
-  const basis: PlanItem['basis'] = hasData ? 'verified_data' : 'general_guidance';
+type Constraints = PlanHousehold['constraints'];
+type ItemFields = Omit<PlanItem, 'effort' | 'exposureEffect' | 'emissionsEffect'> & Partial<PlanItem>;
 
-  // Indoor quick wins are general guidance regardless of today's data.
-  quick.push({
-    key: 'ventilate-cooking',
-    category: 'indoor',
-    title: 'Use the exhaust fan when cooking',
-    body:
-      c?.cookingFuel === 'induction' || c?.cookingFuel === 'electric'
+/** Most advice is low effort, lowers exposure and leaves emissions unchanged; items override what differs. */
+const item = (fields: ItemFields): PlanItem => ({
+  effort: 'low',
+  exposureEffect: 'lower',
+  emissionsEffect: 'similar',
+  ...fields,
+});
+
+/** Indoor quick wins are general guidance and do not depend on today's reading. */
+function indoorQuickWins(c: Constraints): PlanItem[] {
+  const electric = c?.cookingFuel === 'induction' || c?.cookingFuel === 'electric';
+  const wins = [
+    item({
+      key: 'ventilate-cooking',
+      category: 'indoor',
+      title: 'Use the exhaust fan when cooking',
+      body: electric
         ? 'Even with electric or induction cooking, frying and searing release particles. Run the hood or an exhaust fan vented outdoors.'
         : 'Run the range hood or an exhaust fan vented outdoors while cooking and for a few minutes afterwards.',
-    effort: 'low',
-    exposureEffect: 'lower',
-    emissionsEffect: 'similar',
-    basis: 'general_guidance',
-  });
-  quick.push({
-    key: 'no-indoor-smoke',
-    category: 'indoor',
-    title: 'Avoid burning things indoors',
-    body: 'Skip incense, candles and smoking indoors, especially on days when outdoor air is poor.',
-    effort: 'low',
-    exposureEffect: 'lower',
-    emissionsEffect: 'lower',
-    basis: 'general_guidance',
-  });
-  if (c?.hasAirPurifier) {
-    quick.push({
+      basis: 'general_guidance',
+    }),
+    item({
+      key: 'no-indoor-smoke',
+      category: 'indoor',
+      title: 'Avoid burning things indoors',
+      body: 'Skip incense, candles and smoking indoors, especially on days when outdoor air is poor.',
+      emissionsEffect: 'lower',
+      basis: 'general_guidance',
+    }),
+  ];
+  if (!c?.hasAirPurifier) return wins;
+  return [
+    ...wins,
+    item({
       key: 'run-purifier',
       category: 'indoor',
       title: 'Run your purifier in the room you use most',
       body: "Keep doors closed in that room and keep the filter within its replacement period. Effectiveness depends on room size and the purifier's CADR.",
-      effort: 'low',
-      exposureEffect: 'lower',
-      emissionsEffect: 'similar',
       basis: 'general_guidance',
-    });
-  }
+    }),
+  ];
+}
 
-  if (!hasData) {
-    return {
-      status: aq.status,
-      statusReason: aq.reason,
-      severity,
-      items: [],
-      indoorQuickWins: quick,
-      routines: [],
-      headline:
-        aq.status === 'not_configured'
-          ? 'Air-quality data is not configured, so no readings or day-specific advice are shown.'
-          : 'Live air-quality data is unavailable, so only general guidance is shown.',
-      generalGuidanceNote: NOTE,
-    };
-  }
+interface DayContext {
+  category: string;
+  flexible: boolean;
+  sensitive: boolean;
+  basis: PlanItem['basis'];
+}
 
-  const idx = primaryIndex(aq.snapshot!);
-  const timing = Boolean(c && c.timeFlexibility !== 'fixed' && c.timeFlexibility !== 'unknown');
-
-  if (poor(severity)) {
-    items.push({
+function poorDayItems({ category, flexible, basis }: DayContext): PlanItem[] {
+  return [
+    item({
       key: 'shift-outdoor',
       category: 'outdoor',
       title: 'Move strenuous activity indoors or to a cleaner time',
-      body: `Provider category: ${idx?.category ?? 'poor'}. ${timing ? 'You have some schedule flexibility, so check the forecast for a cleaner window.' : 'If your schedule is fixed, keep outdoor effort light.'}`,
-      effort: timing ? 'low' : 'medium',
-      exposureEffect: 'lower',
-      emissionsEffect: 'similar',
+      body: `Provider category: ${category}. ${flexible ? 'You have some schedule flexibility, so check the forecast for a cleaner window.' : 'If your schedule is fixed, keep outdoor effort light.'}`,
+      effort: flexible ? 'low' : 'medium',
       basis,
-    });
-    items.push({
+    }),
+    item({
       key: 'close-windows',
       category: 'indoor',
       title: 'Keep windows closed during the worst hours',
       body: 'Ventilate briefly when outdoor readings are lower, and use your purifier or a filtered fan if you have one.',
-      effort: 'low',
-      exposureEffect: 'lower',
-      emissionsEffect: 'similar',
       basis,
-    });
-    items.push({
+    }),
+    item({
       key: 'respirator',
       category: 'protection',
       title: 'Consider a well-fitted respirator for unavoidable outdoor time',
       body: 'N95, FFP2 or KN95 respirators reduce particle intake only when they fit properly. Cloth masks give little protection from fine particles.',
       effort: 'medium',
-      exposureEffect: 'lower',
-      emissionsEffect: 'similar',
       basis: 'general_guidance',
-    });
-  } else if (elevated(severity)) {
-    items.push({
+    }),
+  ];
+}
+
+function elevatedDayItems({ sensitive, basis }: DayContext): PlanItem[] {
+  return [
+    item({
       key: 'ease-outdoor',
       category: 'outdoor',
       title: sensitive
@@ -155,33 +141,81 @@ export function buildDailyPlan(aq: AirQualityResult, household: PlanHousehold | 
       body: sensitive
         ? 'Children, older adults and people who need extra caution are generally advised to reduce long or strenuous outdoor effort when air quality is not good.'
         : 'If you notice discomfort, shorten or slow down outdoor activity.',
-      effort: 'low',
       exposureEffect: sensitive ? 'lower' : 'similar',
-      emissionsEffect: 'similar',
       basis,
-    });
-  } else if (severity === 'good') {
-    items.push({
+    }),
+  ];
+}
+
+function goodDayItems({ basis }: DayContext): PlanItem[] {
+  return [
+    item({
       key: 'enjoy-outdoors',
       category: 'outdoor',
       title: 'Good day for outdoor activity and airing out the home',
       body: 'Open windows briefly to refresh indoor air, and consider walking or cycling for short trips, which also lowers emissions.',
-      effort: 'low',
       exposureEffect: 'similar',
       emissionsEffect: 'lower',
       basis,
-    });
-  }
+    }),
+  ];
+}
 
-  const current = (c?.commuteMode ?? 'unknown') as CommuteMode;
+function dayItems(severity: Severity, day: DayContext): PlanItem[] {
+  if (poor(severity)) return poorDayItems(day);
+  if (elevated(severity)) return elevatedDayItems(day);
+  if (severity === 'good') return goodDayItems(day);
+  return [];
+}
+
+const hasScheduleFlexibility = (c: Constraints) =>
+  Boolean(c) && c!.timeFlexibility !== 'fixed' && c!.timeFlexibility !== 'unknown';
+
+function noDataPlan(aq: AirQualityResult, quick: PlanItem[]): DailyPlan {
+  return {
+    status: aq.status,
+    statusReason: aq.reason,
+    severity: 'unknown',
+    items: [],
+    indoorQuickWins: quick,
+    routines: [],
+    headline:
+      aq.status === 'not_configured'
+        ? 'Air-quality data is not configured, so no readings or day-specific advice are shown.'
+        : 'Live air-quality data is unavailable, so only general guidance is shown.',
+    generalGuidanceNote: NOTE,
+  };
+}
+
+function headlineFor(aq: AirQualityResult, idx: ReturnType<typeof primaryIndex>): string {
+  if (aq.status === 'stale') return 'Showing the last real reading; the provider is currently unreachable.';
+  const detail = idx ? ` (${idx.displayName} ${idx.aqi})` : '';
+  return `Provider category: ${idx?.category ?? 'unknown'}${detail}.`;
+}
+
+/**
+ * Builds today's plan from the verified reading and the household's needs. Without real data only general
+ * guidance is returned; day-specific advice always rests on the snapshot.
+ */
+export function buildDailyPlan(aq: AirQualityResult, household: PlanHousehold | null): DailyPlan {
+  const c = household?.constraints ?? null;
+  const quick = indoorQuickWins(c);
+  if (!aq.snapshot) return noDataPlan(aq, quick);
+
+  const severity = overallSeverity(aq.snapshot);
+  const idx = primaryIndex(aq.snapshot);
+  const items = dayItems(severity, {
+    category: idx?.category ?? 'poor',
+    flexible: hasScheduleFlexibility(c),
+    sensitive: sensitiveMembers(household),
+    basis: 'verified_data',
+  });
   const routines = compareRoutines({
-    current,
+    current: (c?.commuteMode ?? 'unknown') as CommuteMode,
     severity,
     canWorkFromHome: Boolean(c?.canWorkFromHome),
     candidates: ['work_from_home', 'walk', 'cycle', 'bus', 'metro', 'car', 'two_wheeler'],
   });
-
-  const stale = aq.status === 'stale';
   return {
     status: aq.status,
     statusReason: aq.reason,
@@ -189,9 +223,7 @@ export function buildDailyPlan(aq: AirQualityResult, household: PlanHousehold | 
     items,
     indoorQuickWins: quick,
     routines,
-    headline: stale
-      ? 'Showing the last real reading; the provider is currently unreachable.'
-      : `Provider category: ${idx?.category ?? 'unknown'}${idx ? ` (${idx.displayName} ${idx.aqi})` : ''}.`,
+    headline: headlineFor(aq, idx),
     generalGuidanceNote: NOTE,
   };
 }

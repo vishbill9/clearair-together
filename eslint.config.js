@@ -1,68 +1,58 @@
 import js from '@eslint/js';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+/** Size and complexity limits for application code. Tests may be longer. */
+const maintainability = {
+  complexity: ['error', 10],
+  'max-depth': ['error', 3],
+  'max-params': ['error', 4],
+  'max-nested-callbacks': ['error', 3],
+  'max-lines': ['error', { max: 300, skipBlankLines: true, skipComments: true }],
+  'max-lines-per-function': ['error', { max: 60, skipBlankLines: true, skipComments: true }],
+};
+
 export default tseslint.config(
-  { ignores: ['dist/**', 'node_modules/**', 'drizzle/**', 'playwright-report/**', 'test-results/**'] },
+  {
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'drizzle/**',
+      'playwright-report/**',
+      'test-results/**',
+      'coverage/**',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  {
-    files: ['scripts/**/*.mjs'],
-    languageOptions: { globals: { process: 'readonly', console: 'readonly' } },
-  },
-  {
-    files: ['public/**/*.js'],
-    languageOptions: {
-      globals: {
-        window: 'readonly',
-        localStorage: 'readonly',
-        AudioWorkletNode: 'readonly',
-        AudioWorkletProcessor: 'readonly',
-        registerProcessor: 'readonly',
-        sampleRate: 'readonly',
-        Node: 'readonly',
-        document: 'readonly',
-        navigator: 'readonly',
-        fetch: 'readonly',
-        URL: 'readonly',
-        WebSocket: 'readonly',
-        AudioContext: 'readonly',
-        MediaRecorder: 'readonly',
-        FormData: 'readonly',
-        Blob: 'readonly',
-        File: 'readonly',
-        FileReader: 'readonly',
-        Image: 'readonly',
-        console: 'readonly',
-        setTimeout: 'readonly',
-        clearTimeout: 'readonly',
-        setInterval: 'readonly',
-        clearInterval: 'readonly',
-        location: 'readonly',
-        history: 'readonly',
-        queueMicrotask: 'readonly',
-        sessionStorage: 'readonly',
-        URLSearchParams: 'readonly',
-        AbortController: 'readonly',
-        btoa: 'readonly',
-        atob: 'readonly',
-        Uint8Array: 'readonly',
-        Float32Array: 'readonly',
-        Int16Array: 'readonly',
-        requestAnimationFrame: 'readonly',
-        crypto: 'readonly',
-        HTMLElement: 'readonly',
-        Event: 'readonly',
-      },
-    },
-  },
   {
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       eqeqeq: ['error', 'always'],
+      'prefer-const': 'error',
+      'no-var': 'error',
       'no-eval': 'error',
       'no-implied-eval': 'error',
       'no-new-func': 'error',
+    },
+  },
+  {
+    files: ['src/**/*.ts', 'public/js/**/*.js', 'scripts/**/*.mjs'],
+    rules: maintainability,
+  },
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    files: ['public/js/**/*.js'],
+    languageOptions: { globals: globals.browser },
+  },
+  {
+    files: ['public/js/pcm-worklet.js'],
+    languageOptions: {
+      globals: { AudioWorkletProcessor: 'readonly', registerProcessor: 'readonly', sampleRate: 'readonly' },
     },
   },
 );

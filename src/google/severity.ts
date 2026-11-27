@@ -2,35 +2,53 @@ import type { AirQualityIndex, AirQualitySnapshot } from './types.js';
 
 export type Severity = 'good' | 'moderate' | 'sensitive' | 'unhealthy' | 'very_unhealthy' | 'unknown';
 
-/**
- * Google's Universal AQI (uaqi) is higher = better; most local indexes (usa_epa, ind_cpcb, ...) are higher = worse.
- * We map the *provider category* wherever possible and only fall back to numeric bands for the two well-known scales.
- */
+interface Scale {
+  /** Google's Universal AQI is higher = better; most local indexes are higher = worse. */
+  higherIsBetter: boolean;
+  /** Ordered limits: the first band the value falls within wins. Past the last band: very unhealthy. */
+  bands: Array<[limit: number, severity: Severity]>;
+}
+
+const UAQI: Scale = {
+  higherIsBetter: true,
+  bands: [
+    [60, 'good'],
+    [40, 'moderate'],
+    [20, 'unhealthy'],
+  ],
+};
+const US_EPA: Scale = {
+  higherIsBetter: false,
+  bands: [
+    [50, 'good'],
+    [100, 'moderate'],
+    [150, 'sensitive'],
+    [200, 'unhealthy'],
+  ],
+};
+const IND_CPCB: Scale = {
+  higherIsBetter: false,
+  bands: [
+    [100, 'good'],
+    [200, 'moderate'],
+    [300, 'unhealthy'],
+  ],
+};
+
+const SCALES: Record<string, Scale> = {
+  uaqi: UAQI,
+  usa_epa: US_EPA,
+  usa_epa_nowcast: US_EPA,
+  ind_cpcb: IND_CPCB,
+};
+
+/** Maps an index value to a severity for the scales we know; any other index is `unknown`. */
 export function severityOf(index: AirQualityIndex): Severity {
-  if (index.code === 'uaqi') {
-    const v = index.aqi;
-    if (v >= 80) return 'good';
-    if (v >= 60) return 'good';
-    if (v >= 40) return 'moderate';
-    if (v >= 20) return 'unhealthy';
-    return 'very_unhealthy';
-  }
-  const v = index.aqi;
-  if (index.code === 'usa_epa' || index.code === 'usa_epa_nowcast') {
-    if (v <= 50) return 'good';
-    if (v <= 100) return 'moderate';
-    if (v <= 150) return 'sensitive';
-    if (v <= 200) return 'unhealthy';
-    return 'very_unhealthy';
-  }
-  if (index.code === 'ind_cpcb') {
-    if (v <= 50) return 'good';
-    if (v <= 100) return 'good';
-    if (v <= 200) return 'moderate';
-    if (v <= 300) return 'unhealthy';
-    return 'very_unhealthy';
-  }
-  return 'unknown';
+  const scale = SCALES[index.code];
+  if (!scale) return 'unknown';
+  const within = ([limit]: [number, Severity]) =>
+    scale.higherIsBetter ? index.aqi >= limit : index.aqi <= limit;
+  return scale.bands.find(within)?.[1] ?? 'very_unhealthy';
 }
 
 /** Index shown first: the regional index when present (more meaningful locally), else the universal AQI. */

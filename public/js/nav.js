@@ -1,4 +1,4 @@
-import { $, show } from './dom.js';
+import { $, $$, show } from './dom.js';
 import { api, ApiError } from './api.js';
 
 const VIEWS = ['today', 'ask', 'household', 'routines', 'indoor', 'community'];
@@ -17,7 +17,7 @@ export function go(view) {
 function render(focus) {
   const view = currentView();
   for (const v of VIEWS) show($(`view-${v}`), v === view);
-  for (const a of document.querySelectorAll('[data-view]')) {
+  for (const a of $$('[data-view]')) {
     if (a.dataset.view === view) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   }
@@ -96,43 +96,51 @@ function closeAuth() {
   opener?.focus?.();
 }
 
-async function submitAuth(ev) {
-  ev.preventDefault();
-  const err = $('auth-error');
-  show(err, false);
+function authError(text) {
+  $('auth-error').textContent = text;
+  show($('auth-error'), Boolean(text));
+}
+
+/** Returns the request body, or null after showing what to fix. */
+function authBody() {
   const email = $('auth-email').value.trim();
   const password = $('auth-pass').value;
   if (!email || !password) {
-    err.textContent = 'Enter your email and password.';
-    show(err);
-    return;
+    authError('Enter your email and password.');
+    return null;
   }
-  const body = { email, password };
-  if (mode === 'register') {
-    if (password.length < 10) {
-      err.textContent = 'Use at least 10 characters for your password.';
-      show(err);
-      return;
-    }
-    const name = $('auth-name').value.trim();
-    if (name) body.displayName = name;
+  if (mode !== 'register') return { email, password };
+  if (password.length < 10) {
+    authError('Use at least 10 characters for your password.');
+    return null;
   }
+  const name = $('auth-name').value.trim();
+  return name ? { email, password, displayName: name } : { email, password };
+}
+
+function authFailureText(e) {
+  if (!(e instanceof ApiError)) return 'Something went wrong. Please try again.';
+  if (e.code === 'validation_error')
+    return 'Check your email address and use at least 10 characters for the password.';
+  return e.message;
+}
+
+async function submitAuth(ev) {
+  ev.preventDefault();
+  authError('');
+  const body = authBody();
+  if (!body) return;
+  const action = mode === 'register' ? 'register' : 'login';
   $('auth-submit').disabled = true;
   try {
-    await api('POST', `/api/v1/auth/${mode === 'register' ? 'register' : 'login'}`, body);
+    await api('POST', `/api/v1/auth/${action}`, body);
     const was = me;
     me = await api('GET', '/api/v1/auth/me');
     paintAccount();
     closeAuth();
-    hooks.onAccount?.(me, mode === 'register' ? 'register' : 'login', was);
+    hooks.onAccount?.(me, action, was);
   } catch (e) {
-    err.textContent =
-      e instanceof ApiError && e.code === 'validation_error'
-        ? 'Check your email address and use at least 10 characters for the password.'
-        : e instanceof ApiError
-          ? e.message
-          : 'Something went wrong. Please try again.';
-    show(err);
+    authError(authFailureText(e));
   } finally {
     $('auth-submit').disabled = false;
   }
@@ -174,6 +182,11 @@ export async function initNav(h = {}) {
   }
   window.addEventListener('hashchange', () => render(true));
   render(false);
+  // The skip link focuses the content directly: changing the hash would trigger the view router.
+  document.querySelector('.skip').addEventListener('click', (e) => {
+    e.preventDefault();
+    $('main').focus();
+  });
 
   $('account-btn').addEventListener('click', () => setMenu($('account-menu').hidden));
   $('menu-signin').addEventListener('click', () => openAuth('signin'));

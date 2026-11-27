@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { z } from 'zod';
 
 export const OAUTH_COOKIE = 'ca_oauth';
 export const OAUTH_MAX_AGE_SECONDS = 600;
@@ -29,30 +30,38 @@ export function sealTransaction(secret: string, t: OAuthTransaction, now = Date.
   return `${body}.${mac(secret, body)}`;
 }
 
+const sealedSchema = z.object({
+  state: z.string(),
+  nonce: z.string(),
+  verifier: z.string(),
+  exp: z.number(),
+});
+
+/** Returns the cookie body when its signature is valid, otherwise null. */
+function verifiedBody(secret: string, cookie: string | undefined): string | null {
+  if (!cookie || cookie.length > 1000) return null;
+  const [body, sig, extra] = cookie.split('.');
+  if (!body || !sig || extra !== undefined) return null;
+  return sameSecret(sig, mac(secret, body)) ? body : null;
+}
+
+/** Reads a sealed transaction; null when the cookie is missing, tampered with, malformed or expired. */
 export function openTransaction(
   secret: string,
   cookie: string | undefined,
   now = Date.now(),
 ): OAuthTransaction | null {
-  if (!cookie || cookie.length > 1000) return null;
-  const [body, sig, extra] = cookie.split('.');
-  if (!body || !sig || extra !== undefined) return null;
-  const a = Buffer.from(sig);
-  const b = Buffer.from(mac(secret, body));
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  const body = verifiedBody(secret, cookie);
+  if (!body) return null;
   try {
-    const v = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as Partial<OAuthTransaction> & {
-      exp?: number;
-    };
-    if (typeof v.exp !== 'number' || v.exp * 1000 < now) return null;
-    if (typeof v.state !== 'string' || typeof v.nonce !== 'string' || typeof v.verifier !== 'string')
-      return null;
-    return { state: v.state, nonce: v.nonce, verifier: v.verifier };
+    const v = sealedSchema.parse(JSON.parse(Buffer.from(body, 'base64url').toString('utf8')));
+    return v.exp * 1000 < now ? null : { state: v.state, nonce: v.nonce, verifier: v.verifier };
   } catch {
     return null;
   }
 }
 
+/** Constant-time string comparison. */
 export const sameSecret = (a: string, b: string) => {
   const x = Buffer.from(a);
   const y = Buffer.from(b);

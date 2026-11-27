@@ -58,3 +58,4 @@ export const OUTPUT_CONTRACT = `{
   "sources": [{"id": string}],
   "uncertainty": string
 }`;
+export type AssistantRequest = z.infer<typeof assistantRequestSchema>;

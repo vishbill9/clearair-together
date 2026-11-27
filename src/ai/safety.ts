@@ -113,44 +113,46 @@ function allowedAqiValues(s: AirQualitySnapshot | null): Set<number> {
   return set;
 }
 
+const CURRENT_CONDITIONS =
+  /\b(right now|currently|today)\b[^.]{0,60}\b(is|are)\b[^.]{0,30}\b(good|moderate|unhealthy|hazardous|clean|poor|safe)\b/i;
+
+const ruleViolations = (text: string): Violation[] =>
+  TEXT_RULES.filter((r) => r.re.test(text)).map((r) => ({ rule: r.rule, detail: r.detail }));
+
+/** AQI numbers: only values present in the verified snapshot may be quoted. Without a snapshot, none may. */
+function aqiViolations(text: string, snapshot: AirQualitySnapshot | null): Violation[] {
+  const allowed = allowedAqiValues(snapshot);
+  return [...text.matchAll(AQI_CLAIM)]
+    .map((m) => Number(m[1] ?? m[2]))
+    .filter((n) => Number.isFinite(n) && !allowed.has(n) && !allowed.has(Math.round(n)))
+    .map((n) => ({
+      rule: 'fabricated_aqi',
+      detail: snapshot
+        ? `AQI value ${n} is not in the verified snapshot.`
+        : `AQI value ${n} was quoted but no verified data is available.`,
+    }));
+}
+
+const urlViolations = (text: string): Violation[] =>
+  (text.match(URL_RE) ?? []).map((u) => ({
+    rule: 'fabricated_citation',
+    detail: `URL not allowed in assistant output: ${u.slice(0, 60)}`,
+  }));
+
+/** Without a verified snapshot the assistant must say so rather than imply current conditions. */
+const conditionViolations = (text: string, snapshot: AirQualitySnapshot | null): Violation[] =>
+  !snapshot && CURRENT_CONDITIONS.test(text)
+    ? [{ rule: 'fabricated_conditions', detail: 'Current conditions were described without verified data.' }]
+    : [];
+
 /** Rules that apply to any free text the assistant produces, including live-voice caption transcripts. */
 export function checkFreeText(text: string, snapshot: AirQualitySnapshot | null): Violation[] {
-  const out: Violation[] = [];
-  for (const r of TEXT_RULES) {
-    if (r.re.test(text)) out.push({ rule: r.rule, detail: r.detail });
-  }
-  // AQI numbers: only values present in the verified snapshot may be quoted. Without a snapshot, none may.
-  const allowed = allowedAqiValues(snapshot);
-  for (const m of text.matchAll(AQI_CLAIM)) {
-    const n = Number(m[1] ?? m[2]);
-    if (Number.isFinite(n) && !allowed.has(n) && !allowed.has(Math.round(n))) {
-      out.push({
-        rule: 'fabricated_aqi',
-        detail: snapshot
-          ? `AQI value ${n} is not in the verified snapshot.`
-          : `AQI value ${n} was quoted but no verified data is available.`,
-      });
-    }
-  }
-  for (const u of text.match(URL_RE) ?? []) {
-    out.push({
-      rule: 'fabricated_citation',
-      detail: `URL not allowed in assistant output: ${u.slice(0, 60)}`,
-    });
-  }
-  // Without a verified snapshot the assistant must say so rather than imply current conditions.
-  if (
-    !snapshot &&
-    /\b(right now|currently|today)\b[^.]{0,60}\b(is|are)\b[^.]{0,30}\b(good|moderate|unhealthy|hazardous|clean|poor|safe)\b/i.test(
-      text,
-    )
-  ) {
-    out.push({
-      rule: 'fabricated_conditions',
-      detail: 'Current conditions were described without verified data.',
-    });
-  }
-  return dedupe(out);
+  return dedupe([
+    ...ruleViolations(text),
+    ...aqiViolations(text, snapshot),
+    ...urlViolations(text),
+    ...conditionViolations(text, snapshot),
+  ]);
 }
 
 export function checkAssistantOutput(output: AssistantOutput, ctx: SafetyContext): Violation[] {

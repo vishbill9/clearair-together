@@ -38,13 +38,14 @@ export async function getOwnedRecommendation(db: Db, userId: string, recommendat
   return r?.rec ?? null;
 }
 
-export async function savePlanItems(
-  db: Db,
-  householdId: string,
-  snapshotId: string | null,
-  planDate: string,
-  items: PlanItem[],
-) {
+export interface PlanItemsToSave {
+  householdId: string;
+  snapshotId: string | null;
+  planDate: string;
+  items: PlanItem[];
+}
+
+export async function savePlanItems(db: Db, { householdId, snapshotId, planDate, items }: PlanItemsToSave) {
   if (items.length === 0) return [];
   return db
     .insert(recommendations)
@@ -65,13 +66,14 @@ export async function savePlanItems(
     .returning();
 }
 
-export async function recordFeedback(
-  db: Db,
-  recommendationId: string,
-  userId: string,
-  eventType: string,
-  note: string | null,
-) {
+export interface FeedbackEvent {
+  recommendationId: string;
+  userId: string;
+  eventType: string;
+  note: string | null;
+}
+
+export async function recordFeedback(db: Db, { recommendationId, userId, eventType, note }: FeedbackEvent) {
   await db
     .insert(recommendationEvents)
     .values({ recommendationId, userId, eventType, note })

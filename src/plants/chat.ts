@@ -83,42 +83,57 @@ const SAFE_FALLBACK: PlantChatResult = {
   blocked: true,
 };
 
+const householdContext = (input: PlantChatInput) =>
+  [input.light ? `Room light: ${input.light}.` : null, input.pets ? 'The household has cats or dogs.' : null]
+    .filter(Boolean)
+    .join(' ') || 'No details given.';
+
+/** Trims the model's answer to safe lengths; extra keys were already ignored by the schema. */
+function tidy(data: z.infer<typeof plantChatOutput>) {
+  const cautions = (data.cautions ?? [])
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .slice(0, 4)
+    .map((c) => clip(c, 240));
+  return { answer: clip(data.answer, 1400), cautions };
+}
+
+/** Safety rules the answer breaks, by name only (never content). */
+function brokenRules(text: string): string[] {
+  const rules = [
+    ...(claimsAirCleaning(text) ? ['air_cleaning_claim'] : []),
+    ...checkFreeText(text, null).map((v) => v.rule),
+  ];
+  return [...new Set(rules)];
+}
+
+export interface PlantChatOptions {
+  timeoutMs?: number;
+  /** Receives content-free rule names when a generated answer is replaced by the safe reply. */
+  onBlocked?: (rules: string[]) => void;
+}
+
+/**
+ * Answers a houseplant question. A pet or child eating a plant gets fixed urgent guidance without a model
+ * call; any answer that claims plants clean the air, or breaks another safety rule, is replaced.
+ */
 export async function answerPlantQuestion(
   provider: AiProvider,
   input: PlantChatInput,
-  timeoutMs = 35_000,
-  /** Receives content-free rule names when a generated answer is replaced by the safe reply. */
-  onBlocked: (rules: string[]) => void = () => undefined,
+  { timeoutMs = 35_000, onBlocked }: PlantChatOptions = {},
 ): Promise<PlantChatResult> {
   if (isIngestionConcern(input.question)) return URGENT;
-  const context = [
-    input.light ? `Room light: ${input.light}.` : null,
-    input.pets ? 'The household has cats or dogs.' : null,
-  ]
-    .filter(Boolean)
-    .join(' ');
   const raw = await provider.generate({
     system: SYSTEM,
-    user: `<household>${context || 'No details given.'}</household>\n<user_question>${input.question}</user_question>`,
+    user: `<household>${householdContext(input)}</household>\n<user_question>${input.question}</user_question>`,
     maxTokens: 2048,
     timeoutMs,
   });
   const parsed = plantChatOutput.safeParse(extractJson(raw));
   if (!parsed.success) throw new AiProviderError('bad_response', 'schema');
-  const answer = clip(parsed.data.answer, 1400);
-  const cautions = (parsed.data.cautions ?? [])
-    .map((c) => c.trim())
-    .filter(Boolean)
-    .slice(0, 4)
-    .map((c) => clip(c, 240));
-  const text = [answer, ...cautions].join(' ');
-  const rules = [
-    ...(claimsAirCleaning(text) ? ['air_cleaning_claim'] : []),
-    ...checkFreeText(text, null).map((v) => v.rule),
-  ];
-  if (rules.length > 0) {
-    onBlocked([...new Set(rules)]);
-    return SAFE_FALLBACK;
-  }
-  return { kind: 'answer', answer, cautions, blocked: false };
+  const { answer, cautions } = tidy(parsed.data);
+  const rules = brokenRules([answer, ...cautions].join(' '));
+  if (rules.length === 0) return { kind: 'answer', answer, cautions, blocked: false };
+  onBlocked?.(rules);
+  return SAFE_FALLBACK;
 }

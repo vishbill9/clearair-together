@@ -129,6 +129,8 @@ test('keyboard: skip link and logical focus order reach the main controls', asyn
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
   await page.keyboard.press('Enter');
+  // Wait for the skip link to move focus before tabbing on, so the check is not timing-dependent.
+  await expect(page.locator('#main')).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByLabel('Latitude')).toBeFocused();
 });
