@@ -205,3 +205,17 @@ test('menu switches views and the sky follows the verified category', async ({ p
   await page.locator('.chip[data-q]').first().click();
   await expect(page.locator('.msg.user').last()).toContainText('exercise');
 });
+
+test('Google sign-in button is hidden when the server is not configured', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#account-btn').click();
+  await page.getByRole('menuitem', { name: 'Sign in' }).click();
+  await expect(page.locator('#google-btn')).toBeHidden();
+});
+
+test('an OAuth error redirect opens the sign-in dialog with a plain message', async ({ page }) => {
+  await page.goto('/?auth_error=google_denied#/today');
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.locator('#auth-error')).toContainText('cancelled');
+  await expect(page).toHaveURL(/\/#\/today$/);
+});

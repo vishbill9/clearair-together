@@ -777,7 +777,7 @@ async function onAccount(me, reason, before) {
 
 (async () => {
   await loadConfig();
-  await initNav({ onAccount });
+  await initNav({ onAccount, googleLogin: state.config.integrations.googleLogin });
   const id = store.get('ca_household');
   if (id) {
     try {

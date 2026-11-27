@@ -21,4 +21,6 @@ services:
       - { key: APP_ORIGIN, sync: false }
       - { key: GOOGLE_AIR_QUALITY_API_KEY, sync: false }
       - { key: OLLAMA_API_KEY, sync: false }
+      - { key: GOOGLE_OAUTH_CLIENT_ID, sync: false }
+      - { key: GOOGLE_OAUTH_CLIENT_SECRET, sync: false }
       - { key: OLLAMA_MODEL, value: gemma4:31b }

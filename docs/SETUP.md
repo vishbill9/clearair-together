@@ -49,3 +49,12 @@ Any Node host works (Render, Fly.io, Railway, a VM). Build command `npm ci --inc
 `npm start`. Terminate TLS in front of the app and set `APP_ORIGIN` to the https URL; HSTS, `Secure` cookies and
 `upgrade-insecure-requests` switch on automatically in production. WebSockets (live voice) must be enabled on the
 platform. Run `purgeExpired` (see `src/routes/indoor.ts`) on a schedule if you enable stored photos.
+
+## Google sign-in (optional)
+
+1. Google Cloud Console → APIs & Services → Credentials → Create credentials → OAuth client ID → **Web application**.
+2. Authorized redirect URI: `<APP_ORIGIN>/api/v1/auth/google/callback` (for local use `http://localhost:3000/api/v1/auth/google/callback`).
+3. Configure the OAuth consent screen (scopes `openid`, `email`, `profile`; add test users while the app is in Testing mode).
+4. Set `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` (both or neither). The "Continue with Google" button appears automatically.
+
+Flow: authorization code with PKCE (S256), a signed single-use state cookie, nonce, and server-side code exchange. The same verified email links to the existing account; a first-time user keeps anything already saved in the browser.

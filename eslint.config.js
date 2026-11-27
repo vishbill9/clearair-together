@@ -38,6 +38,8 @@ export default tseslint.config(
         setInterval: 'readonly',
         clearInterval: 'readonly',
         location: 'readonly',
+        history: 'readonly',
+        queueMicrotask: 'readonly',
         sessionStorage: 'readonly',
         URLSearchParams: 'readonly',
         AbortController: 'readonly',

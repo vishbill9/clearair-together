@@ -27,3 +27,7 @@ Known dev-only advisory: `drizzle-kit` pulls a deprecated `@esbuild-kit/*` chain
 - `/api/v1/auth/*` is limited to 10 requests per minute per IP, on top of the global limit. All auth writes need the CSRF token like every other mutating route.
 - Sign-out clears the session cookie. Tests: `test/auth.test.ts`, e2e "sign up, see the account menu, sign out and back in".
 - Not included yet: password reset by email, email verification and account deletion. Add them before opening sign-up to the public.
+
+### Google sign-in
+
+Authorization code flow with PKCE (S256). `state`, `nonce` and the PKCE verifier live in an HMAC-signed, http-only, SameSite=Lax cookie scoped to `/api/v1/auth/google`, valid 10 minutes and cleared on the callback (single use). The code is exchanged server-side with the client secret, which never reaches the browser or logs. The id_token is taken directly from Google's token endpoint over TLS and its `iss`, `aud`, `exp`, `nonce` and `email_verified` claims are all checked. Accounts are keyed on Google's stable `sub`; an existing account is linked only when Google reports the same verified email. Failures redirect with a generic `auth_error` and record the reason in the audit log only.

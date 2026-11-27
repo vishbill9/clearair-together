@@ -152,8 +152,26 @@ async function signOut() {
 
 export const account = () => me;
 
+const AUTH_ERRORS = {
+  google_denied: 'Google sign-in was cancelled. You can try again or use your email.',
+  google_signed_in: 'You are already signed in. Sign out first to use another Google account.',
+  google: 'Google sign-in did not work. Please try again or use your email.',
+};
+
 export async function initNav(h = {}) {
   hooks = h;
+  const gl = Boolean(h.googleLogin);
+  show($('google-btn'), gl);
+  show($('google-or'), gl);
+  const err = new URLSearchParams(location.search).get('auth_error');
+  if (err) {
+    history.replaceState(null, '', `${location.pathname}${location.hash}`);
+    queueMicrotask(() => {
+      openAuth('signin');
+      $('auth-error').textContent = AUTH_ERRORS[err] ?? AUTH_ERRORS.google;
+      show($('auth-error'));
+    });
+  }
   window.addEventListener('hashchange', () => render(true));
   render(false);
 

@@ -23,6 +23,8 @@ const envSchema = z.object({
   APP_ORIGIN: z.string().url().default('http://localhost:3000'),
   DATABASE_URL: optionalString,
   GOOGLE_AIR_QUALITY_API_KEY: optionalString,
+  GOOGLE_OAUTH_CLIENT_ID: optionalString,
+  GOOGLE_OAUTH_CLIENT_SECRET: optionalString,
   GOOGLE_AIR_QUALITY_BASE_URL: z.string().url().default('https://airquality.googleapis.com'),
   ANTHROPIC_API_KEY: optionalString,
   OLLAMA_API_KEY: optionalString,
@@ -56,6 +58,8 @@ export interface Config {
   isProduction: boolean;
   port: number;
   appOrigin: string;
+  /** "Continue with Google"; null unless both the client id and secret are set. */
+  googleLogin: { clientId: string; clientSecret: string } | null;
   databaseUrl?: string;
   google: { apiKey?: string; baseUrl: string };
   anthropicApiKey?: string;
@@ -88,6 +92,7 @@ export interface Config {
   integrations: {
     database: boolean;
     googleAirQuality: boolean;
+    googleLogin: boolean;
     assistant: boolean;
     live: boolean;
     vision: boolean;
@@ -110,6 +115,9 @@ export function loadConfig(
   }
   const e = parsed.data;
   const isProduction = e.NODE_ENV === 'production';
+  if (Boolean(e.GOOGLE_OAUTH_CLIENT_ID) !== Boolean(e.GOOGLE_OAUTH_CLIENT_SECRET)) {
+    throw new ConfigError('Set both GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET, or neither.');
+  }
   const aiProvider: 'ollama' | 'anthropic' | null =
     e.AI_PROVIDER === 'anthropic'
       ? e.ANTHROPIC_API_KEY
@@ -174,6 +182,10 @@ export function loadConfig(
     isProduction,
     port: e.PORT,
     appOrigin: new URL(e.APP_ORIGIN).origin,
+    googleLogin:
+      e.GOOGLE_OAUTH_CLIENT_ID && e.GOOGLE_OAUTH_CLIENT_SECRET
+        ? { clientId: e.GOOGLE_OAUTH_CLIENT_ID, clientSecret: e.GOOGLE_OAUTH_CLIENT_SECRET }
+        : null,
     databaseUrl: e.DATABASE_URL,
     google: {
       apiKey: e.GOOGLE_AIR_QUALITY_API_KEY,
@@ -215,6 +227,7 @@ export function loadConfig(
     integrations: {
       database: Boolean(e.DATABASE_URL),
       googleAirQuality: Boolean(e.GOOGLE_AIR_QUALITY_API_KEY),
+      googleLogin: Boolean(e.GOOGLE_OAUTH_CLIENT_ID && e.GOOGLE_OAUTH_CLIENT_SECRET),
       assistant: aiProvider !== null,
       live: e.LIVE_AI_ENABLED && Boolean(e.GOOGLE_GEMINI_API_KEY && e.GOOGLE_GEMINI_LIVE_MODEL),
       vision: Boolean(e.GOOGLE_GEMINI_API_KEY && e.GOOGLE_GEMINI_VISION_MODEL),

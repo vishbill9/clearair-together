@@ -69,6 +69,7 @@ export async function createHarness(
     withGoogleKey?: boolean;
     withVision?: boolean;
     liveUpstream?: import('../../src/live/voice.js').UpstreamFactory | null;
+    oauthFetch?: import('../../src/routes/google-login.js').OAuthFetch;
   } = {},
 ): Promise<Harness> {
   const tdb = await createTestDb();
@@ -127,6 +128,7 @@ export async function createHarness(
     aiProvider: provider,
     visionProvider,
     ...(opts.liveUpstream !== undefined ? { liveUpstream: opts.liveUpstream } : {}),
+    ...(opts.oauthFetch ? { oauthFetch: opts.oauthFetch } : {}),
     logDestination: sink,
     now: () => new Date(),
   });

@@ -32,15 +32,18 @@ export const users = pgTable(
     /** scrypt$N$r$p$salt$hash (base64url). Never returned by any API. */
     passwordHash: text('password_hash'),
     displayName: text('display_name'),
+    /** Google account id (`sub`) for "Continue with Google". Stable, unlike email. */
+    googleSub: text('google_sub'),
     createdAt: createdAt(),
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     check('users_kind_check', sql`${t.kind} in ('anonymous','registered')`),
     uniqueIndex('users_email_unique').on(t.email),
+    uniqueIndex('users_google_sub_unique').on(t.googleSub),
     check(
       'users_registered_has_credentials',
-      sql`${t.kind} <> 'registered' or (${t.email} is not null and ${t.passwordHash} is not null)`,
+      sql`${t.kind} <> 'registered' or (${t.email} is not null and (${t.passwordHash} is not null or ${t.googleSub} is not null))`,
     ),
   ],
 );
