@@ -18,6 +18,8 @@ import { AssistantService } from './ai/assistant.js';
 import { registerSecurity } from './security/plugin.js';
 import { registerApi } from './routes/api.js';
 import { registerAuth } from './routes/auth.js';
+import { registerPlants } from './routes/plants.js';
+import { GeminiTextProvider } from './ai/gemini-text.js';
 import { registerGoogleLogin, type OAuthFetch } from './routes/google-login.js';
 import { registerIndoor } from './routes/indoor.js';
 import { registerLive, defaultUpstream, type UpstreamFactory } from './live/voice.js';
@@ -32,6 +34,7 @@ export interface AppDeps {
   oauthFetch?: OAuthFetch;
   aiProvider?: AiProvider | null;
   visionProvider?: VisionProvider | null;
+  plantProvider?: AiProvider | null;
   liveUpstream?: UpstreamFactory | null;
   logDestination?: NodeJS.WritableStream;
   now?: () => Date;
@@ -142,7 +145,14 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
       : config.live.geminiApiKey && config.live.visionModel
         ? new GeminiVisionProvider({ apiKey: config.live.geminiApiKey, model: config.live.visionModel })
         : null;
+  const plantProvider: AiProvider | null =
+    deps.plantProvider !== undefined
+      ? deps.plantProvider
+      : config.live.geminiApiKey && config.live.chatModel
+        ? new GeminiTextProvider({ apiKey: config.live.geminiApiKey, model: config.live.chatModel })
+        : null;
   await registerApi(app, ctx);
+  await registerPlants(app, ctx, plantProvider);
   await registerAuth(app, ctx);
   await registerGoogleLogin(app, ctx, deps.oauthFetch);
   await registerIndoor(app, ctx, vision);

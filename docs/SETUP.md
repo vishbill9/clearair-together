@@ -62,3 +62,7 @@ Flow: authorization code with PKCE (S256), a signed single-use state cookie, non
 ## Voice talk (Gemini Live)
 
 Set `GOOGLE_GEMINI_API_KEY` (create it in Google AI Studio), `LIVE_AI_ENABLED=true` and `GOOGLE_GEMINI_LIVE_MODEL` (Render blueprint default: `gemini-3.8-live`; check Google's Live API docs for the current id). The browser needs microphone permission and https. If any of these is missing the Ask & talk page says voice is off and typing keeps working.
+
+## Plant guide and Gemini chat
+
+The Plants page lists nine easy-care houseplants with original illustrations, filtered by room light and pets. The chat uses Gemini text (`GOOGLE_GEMINI_API_KEY` plus `GOOGLE_GEMINI_CHAT_MODEL`, Render default `gemini-3.5-flash-lite`). Replies are schema-validated and blocked if they claim plants clean air, quote an AQI number or include a link. A pet or child eating a plant gets fixed urgent guidance (vet or poison control) without calling the model. The earlier sensor and camera checks live under "Advanced" on the same page.

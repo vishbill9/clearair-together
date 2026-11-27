@@ -43,6 +43,7 @@ const envSchema = z.object({
   GOOGLE_GEMINI_API_KEY: optionalString,
   GOOGLE_GEMINI_LIVE_MODEL: optionalString,
   GOOGLE_GEMINI_VISION_MODEL: optionalString,
+  GOOGLE_GEMINI_CHAT_MODEL: optionalString,
   LIVE_AI_ENABLED: bool,
   MAX_LIVE_SESSION_SECONDS: intInRange(300, 2, 3600),
   LIVE_IDLE_TIMEOUT_SECONDS: intInRange(30, 1, 600),
@@ -76,6 +77,8 @@ export interface Config {
   live: {
     enabled: boolean;
     geminiApiKey?: string;
+    /** Text model for the plant chat (Gemini generateContent). */
+    chatModel?: string;
     liveModel?: string;
     visionModel?: string;
     maxSessionSeconds: number;
@@ -96,6 +99,7 @@ export interface Config {
     assistant: boolean;
     live: boolean;
     vision: boolean;
+    plantChat: boolean;
   };
 }
 
@@ -214,6 +218,7 @@ export function loadConfig(
       geminiApiKey: e.GOOGLE_GEMINI_API_KEY,
       liveModel: e.GOOGLE_GEMINI_LIVE_MODEL,
       visionModel: e.GOOGLE_GEMINI_VISION_MODEL,
+      chatModel: e.GOOGLE_GEMINI_CHAT_MODEL,
       maxSessionSeconds: e.MAX_LIVE_SESSION_SECONDS,
       idleTimeoutSeconds: e.LIVE_IDLE_TIMEOUT_SECONDS,
     },
@@ -231,6 +236,7 @@ export function loadConfig(
       assistant: aiProvider !== null,
       live: e.LIVE_AI_ENABLED && Boolean(e.GOOGLE_GEMINI_API_KEY && e.GOOGLE_GEMINI_LIVE_MODEL),
       vision: Boolean(e.GOOGLE_GEMINI_API_KEY && e.GOOGLE_GEMINI_VISION_MODEL),
+      plantChat: Boolean(e.GOOGLE_GEMINI_API_KEY && e.GOOGLE_GEMINI_CHAT_MODEL),
     },
   };
 }

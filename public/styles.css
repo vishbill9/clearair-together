@@ -840,6 +840,77 @@ button:disabled {
   }
 }
 
+/* ---- Plants ---- */
+.plant-filters {
+  align-items: end;
+}
+.plant-grid {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+}
+.plant {
+  background: var(--card-solid);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+.plant img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  background: #e8f3f4;
+}
+.plant-body {
+  padding: 0.8rem 1rem 1rem;
+}
+.plant-body h3 {
+  margin: 0;
+}
+.plant-body p {
+  margin: 0.35rem 0 0;
+}
+.latin {
+  font-style: italic;
+  color: var(--ink-2);
+  font-size: 0.9rem;
+}
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.tag {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.12rem 0.6rem;
+  border-radius: 99px;
+  background: var(--brand-soft);
+  color: var(--ink);
+}
+.tag.safe {
+  background: var(--good);
+  color: #fff;
+}
+.tag.warn {
+  background: var(--moderate);
+  color: #fff;
+}
+.adv summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0.3rem 0;
+}
+.adv[open] summary {
+  margin-bottom: 0.6rem;
+}
+
 /* ---- Google sign-in ---- */
 .google-btn {
   display: flex;

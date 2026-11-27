@@ -97,6 +97,7 @@ test('camera check shows the not-measured disclaimer and never an AQI', async ({
   await page.getByRole('button', { name: 'Save household' }).click();
   await expect(page.locator('#house-msg')).toHaveText('Household saved.');
   await view(page, 'indoor');
+  await page.locator('details.adv summary').click();
   const img = await sharp({ create: { width: 80, height: 60, channels: 3, background: '#789' } })
     .jpeg()
     .toBuffer();
@@ -218,4 +219,20 @@ test('an OAuth error redirect opens the sign-in dialog with a plain message', as
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.locator('#auth-error')).toContainText('cancelled');
   await expect(page).toHaveURL(/\/#\/today$/);
+});
+
+test('plants: filter by light and pets, and chat is off without a Gemini model', async ({ page }) => {
+  await page.goto('/#/indoor');
+  const cards = page.locator('#plant-grid li');
+  await expect(cards.first()).toBeVisible();
+  const all = await cards.count();
+  await page.locator('#plant-pets').check();
+  const safe = await cards.count();
+  expect(safe).toBeGreaterThan(0);
+  expect(safe).toBeLessThan(all);
+  await expect(page.locator('#plant-grid .tag.warn')).toHaveCount(0);
+  await page.locator('#plant-light').selectOption('bright');
+  await expect(page.locator('#plant-count')).toContainText('suit');
+  await expect(page.locator('#plant-note')).toContainText('very little');
+  await expect(page.locator('#plantchat-off')).toBeVisible();
 });

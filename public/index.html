@@ -28,7 +28,7 @@
           <a href="#/ask" data-view="ask">Ask &amp; talk</a>
           <a href="#/household" data-view="household">My home</a>
           <a href="#/routines" data-view="routines">Routines</a>
-          <a href="#/indoor" data-view="indoor">Indoor air</a>
+          <a href="#/indoor" data-view="indoor">Plants</a>
           <a href="#/community" data-view="community">Community</a>
         </nav>
         <div class="account" id="account">
@@ -342,42 +342,114 @@
         </section>
       </section>
 
-      <section class="view" id="view-indoor" data-title="Indoor air" hidden>
-        <h1 class="page-title" tabindex="-1">Indoor air</h1>
-        <section aria-labelledby="h-indoor" class="panel">
-          <h2 id="h-indoor">Sensor and camera checks</h2>
-          <div id="indoor-status" class="empty">
-            Indoor air quality is only reported from a real sensor reading. None yet.
+      <section class="view" id="view-indoor" data-title="Indoor plants" hidden>
+        <h1 class="page-title" tabindex="-1">Plants for your home</h1>
+        <p class="lead">
+          Easy-care greenery picked for your light and your pets, and a Gemini-powered guide to chat with.
+        </p>
+        <p class="notice" id="plant-note" role="note">
+          Honest note: houseplants change indoor air quality very little in real rooms. Choose them for
+          greenery and wellbeing. For cleaner air, ventilate when outdoor air is good, remove sources like
+          smoke, and consider a purifier.
+        </p>
+        <section class="panel" aria-labelledby="h-plants">
+          <h2 id="h-plants">Find a plant</h2>
+          <div class="row plant-filters">
+            <div class="field">
+              <label for="plant-light">Light in the room</label>
+              <select id="plant-light">
+                <option value="">Any</option>
+                <option value="low">Low (north-facing or far from a window)</option>
+                <option value="medium">Medium (bright but no direct sun)</option>
+                <option value="bright">Bright (near a sunny window)</option>
+              </select>
+            </div>
+            <label class="check"><input type="checkbox" id="plant-pets" /> I have cats or dogs</label>
           </div>
-          <div id="camera-block" hidden>
-            <h3>Camera check</h3>
-            <p class="hint">Look for possible sources and ventilation clues in a photo of a room.</p>
-            <form id="visual-form" novalidate>
-              <div class="field">
-                <label for="img">Photo (JPEG, PNG or WebP)</label
-                ><input id="img" type="file" accept="image/jpeg,image/png,image/webp" />
-              </div>
-              <div class="row">
-                <div class="field">
-                  <label for="v-area">Room floor area (m²)</label><input id="v-area" inputmode="decimal" />
-                </div>
-                <div class="field">
-                  <label for="v-height">Ceiling height (m)</label><input id="v-height" inputmode="decimal" />
-                </div>
-                <div class="field">
-                  <label for="v-cadr">Purifier CADR (m³/h)</label><input id="v-cadr" inputmode="decimal" />
-                </div>
-              </div>
-              <label class="check"
-                ><input type="checkbox" id="v-store" /> Keep this photo, encrypted, for the retention
-                period</label
-              >
-              <button type="submit" id="visual-btn" disabled>Check photo</button>
+          <p class="hint" id="plant-count" role="status"></p>
+          <ul class="plant-grid" id="plant-grid"></ul>
+        </section>
+        <section class="panel" aria-labelledby="h-plantchat">
+          <h2 id="h-plantchat">Chat with Gemini about plants</h2>
+          <p class="hint" id="plantchat-off" hidden>
+            Plant chat is not switched on for this server yet. The plant list above still works.
+          </p>
+          <div id="plantchat-on">
+            <div class="chips" role="group" aria-label="Suggested plant questions">
+              <button type="button" class="chip" data-pq="Which plant is easiest for a beginner?">
+                Easiest for a beginner
+              </button>
+              <button type="button" class="chip" data-pq="What can I grow in a dark corner?">
+                Dark corner
+              </button>
+              <button type="button" class="chip" data-pq="Why are my plant's leaves turning yellow?">
+                Yellow leaves
+              </button>
+              <button type="button" class="chip" data-pq="How do I know if I am overwatering?">
+                Overwatering?
+              </button>
+            </div>
+            <div
+              id="plantchat"
+              class="chat"
+              role="log"
+              aria-live="polite"
+              aria-label="Plant conversation"
+            ></div>
+            <form id="plantchat-form" novalidate>
+              <label for="plantchat-input">Your plant question</label>
+              <textarea
+                id="plantchat-input"
+                rows="2"
+                maxlength="600"
+                placeholder="For example: a plant for my bedroom with a cat"
+              ></textarea>
+              <div class="actions"><button type="submit" id="plantchat-send">Ask Gemini</button></div>
             </form>
-            <p id="visual-msg" class="notice" hidden></p>
-            <div id="visual-out" hidden></div>
+            <p class="hint">
+              General plant care only. If a pet or child has eaten a plant, call your vet or poison control
+              straight away.
+            </p>
           </div>
         </section>
+        <details class="panel adv">
+          <summary>Advanced: sensor readings and camera check</summary>
+          <section aria-labelledby="h-indoor">
+            <h2 id="h-indoor">Sensor and camera checks</h2>
+            <div id="indoor-status" class="empty">
+              Indoor air quality is only reported from a real sensor reading. None yet.
+            </div>
+            <div id="camera-block" hidden>
+              <h3>Camera check</h3>
+              <p class="hint">Look for possible sources and ventilation clues in a photo of a room.</p>
+              <form id="visual-form" novalidate>
+                <div class="field">
+                  <label for="img">Photo (JPEG, PNG or WebP)</label
+                  ><input id="img" type="file" accept="image/jpeg,image/png,image/webp" />
+                </div>
+                <div class="row">
+                  <div class="field">
+                    <label for="v-area">Room floor area (m²)</label><input id="v-area" inputmode="decimal" />
+                  </div>
+                  <div class="field">
+                    <label for="v-height">Ceiling height (m)</label
+                    ><input id="v-height" inputmode="decimal" />
+                  </div>
+                  <div class="field">
+                    <label for="v-cadr">Purifier CADR (m³/h)</label><input id="v-cadr" inputmode="decimal" />
+                  </div>
+                </div>
+                <label class="check"
+                  ><input type="checkbox" id="v-store" /> Keep this photo, encrypted, for the retention
+                  period</label
+                >
+                <button type="submit" id="visual-btn" disabled>Check photo</button>
+              </form>
+              <p id="visual-msg" class="notice" hidden></p>
+              <div id="visual-out" hidden></div>
+            </div>
+          </section>
+        </details>
       </section>
 
       <section class="view" id="view-community" data-title="Community" hidden>

@@ -2,6 +2,7 @@ import { $, h, clear, show } from './dom.js';
 import { api, ApiError } from './api.js';
 import { startVoice } from './voice.js';
 import { go, initNav } from './nav.js';
+import { initPlants } from './plants.js';
 
 const state = { loc: null, aq: null, householdId: null, config: null, challengeId: null, voice: null };
 const store = {
@@ -781,6 +782,7 @@ async function onAccount(me, reason, before) {
 
 (async () => {
   await loadConfig();
+  void initPlants({ chatOn: Boolean(state.config.integrations.plantChat) });
   await initNav({ onAccount, googleLogin: state.config.integrations.googleLogin });
   const id = store.get('ca_household');
   if (id) {
