@@ -45,7 +45,7 @@ Names only; see `.env.example` for defaults. Secrets must be set in your host's 
 
 ## 5. Deploying
 
-Any Node host works (Render, Fly.io, Railway, a VM). Build command `npm ci && npm run build`; start command
+Any Node host works (Render, Fly.io, Railway, a VM). Build command `npm ci --include=dev && npm run build` (devDependencies are needed for `tsc` even when `NODE_ENV=production`); start command
 `npm start`. Terminate TLS in front of the app and set `APP_ORIGIN` to the https URL; HSTS, `Secure` cookies and
 `upgrade-insecure-requests` switch on automatically in production. WebSockets (live voice) must be enabled on the
 platform. Run `purgeExpired` (see `src/routes/indoor.ts`) on a schedule if you enable stored photos.
