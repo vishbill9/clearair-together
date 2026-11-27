@@ -43,8 +43,6 @@ export const REDACT_PATHS = [
   'OLLAMA_API_KEY',
   'SESSION_SECRET',
   'DATABASE_URL',
-  'IMAGE_ENCRYPTION_KEY',
-  'encryptionKey',
   'data',
 ];
 

@@ -4,10 +4,10 @@
 
 - `npm test`: 130 `node:test` tests across Google request building/normalization/pagination/failure modes, freshness states,
   AI schema and safety policy, authorization isolation, security headers/CORS/CSRF/rate limits/redaction, emissions vs
-  exposure logic, migrations and constraints on **real PostgreSQL**, image pipeline, sensor validation, encrypted storage,
+  exposure logic, migrations and constraints on **real PostgreSQL**, sensor validation,
   live-voice proxy (against a local fake Gemini WebSocket server).
 - `npm run test:browser`: 11 Playwright tests × desktop and mobile: location, real-data status, provenance, unavailable state,
-  assistant, feedback, camera disclaimer, community suppression, keys-not-in-browser, axe (WCAG 2 A/AA), keyboard, 360px width.
+  assistant, feedback, community suppression, keys-not-in-browser, axe (WCAG 2 A/AA), keyboard, 360px width.
 
 ## Not verified against live services
 
@@ -22,5 +22,4 @@ tested with stubs that follow the documented request/response shapes. Before lau
    `realtimeInput.audio` as 16 kHz PCM, 24 kHz audio out, input/output transcription). Key passing (`?key=`), audio MIME
    type and model names were not confirmed against the live service. Also, audio cannot be recalled once played, so the
    transcript safety check can end a session but cannot unsay a sentence already spoken.
-4. **Gemini vision** model id and JSON mode.
-5. A real browser microphone and camera pass on a phone (the e2e suite stubs the model and does not open the mic).
+4. A real browser microphone pass on a phone (the e2e suite stubs the model and does not open the mic).

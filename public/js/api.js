@@ -16,15 +16,14 @@ async function ensureCsrf() {
   if (!cookie('ca_csrf')) await fetch('/api/v1/session', { credentials: 'same-origin' });
 }
 
-export async function api(method, path, body, { form } = {}) {
+export async function api(method, path, body) {
   const headers = { accept: 'application/json' };
   if (method !== 'GET') {
     await ensureCsrf();
     headers['x-csrf-token'] = cookie('ca_csrf');
   }
   let payload;
-  if (form) payload = form;
-  else if (body !== undefined) {
+  if (body !== undefined) {
     headers['content-type'] = 'application/json';
     payload = JSON.stringify(body);
   }

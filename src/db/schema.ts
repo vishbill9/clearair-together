@@ -2,7 +2,6 @@ import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
-  customType,
   doublePrecision,
   index,
   jsonb,
@@ -13,10 +12,6 @@ import {
   uuid,
   date,
 } from 'drizzle-orm/pg-core';
-
-const bytea = customType<{ data: Buffer; driverData: Buffer }>({
-  dataType: () => 'bytea',
-});
 
 const id = () => uuid('id').primaryKey().defaultRandom();
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
@@ -278,31 +273,6 @@ export const indoorSensorReadings = pgTable(
   ],
 );
 
-/** Optional, consent-based storage of a normalized room image. The image is AES-256-GCM encrypted. */
-export const indoorImages = pgTable(
-  'indoor_images',
-  {
-    id: id(),
-    householdId: uuid('household_id')
-      .notNull()
-      .references(() => households.id, { onDelete: 'cascade' }),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    mimeType: text('mime_type').notNull(),
-    ciphertext: bytea('ciphertext').notNull(),
-    iv: bytea('iv').notNull(),
-    authTag: bytea('auth_tag').notNull(),
-    consentedAt: timestamp('consented_at', { withTimezone: true }).notNull(),
-    createdAt: createdAt(),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-  },
-  (t) => [
-    index('indoor_images_household_idx').on(t.householdId),
-    index('indoor_images_expiry_idx').on(t.expiresAt),
-  ],
-);
-
 export const TABLES = [
   'users',
   'households',
@@ -315,5 +285,4 @@ export const TABLES = [
   'community_participation',
   'audit_events',
   'indoor_sensor_readings',
-  'indoor_images',
 ] as const;

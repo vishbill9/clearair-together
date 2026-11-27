@@ -39,16 +39,15 @@ Names only; see `.env.example` for defaults. Secrets must be set in your host's 
 | `OLLAMA_MODEL` (gemma4:31b), `OLLAMA_BASE_URL`, `AI_PROVIDER`, `AI_MODEL` (Anthropic only), `AIR_QUALITY_CACHE_TTL_SECONDS` (900), `AIR_QUALITY_STALE_MAX_SECONDS`, `MAX_FORECAST_HOURS` (96) | Tuning                                                                                              |
 | `CORS_ALLOWED_ORIGINS`, `FRAME_ANCESTORS`                                                                                                                                                     | Comma separated. `FRAME_ANCESTORS` lists hosts allowed to embed a preview; default is `'self'` only |
 | `TRUST_PROXY`                                                                                                                                                                                 | Set `true` behind a reverse proxy so rate limits use the real client IP                             |
-| `LIVE_AI_ENABLED`, `GOOGLE_GEMINI_API_KEY`, `GOOGLE_GEMINI_LIVE_MODEL`, `GOOGLE_GEMINI_VISION_MODEL`                                                                                          | Optional multimodal module                                                                          |
-| `MAX_LIVE_SESSION_SECONDS`, `LIVE_IDLE_TIMEOUT_SECONDS`, `MAX_IMAGE_BYTES`, `MAX_IMAGE_DIMENSION`, `VISION_RATE_LIMIT_PER_MINUTE`                                                             | Limits                                                                                              |
-| `IMAGE_ENCRYPTION_KEY`, `IMAGE_RETENTION_DAYS`                                                                                                                                                | Base64 32-byte key (`openssl rand -base64 32`). Without it, photos can never be stored              |
+| `LIVE_AI_ENABLED`, `GOOGLE_GEMINI_API_KEY`, `GOOGLE_GEMINI_LIVE_MODEL`                                                                                                                        | Optional multimodal module                                                                          |
+| `MAX_LIVE_SESSION_SECONDS`, `LIVE_IDLE_TIMEOUT_SECONDS`                                                                                                                                       | Limits                                                                                              |
 
 ## 5. Deploying
 
 Any Node host works (Render, Fly.io, Railway, a VM). Build command `npm ci --include=dev && npm run build` (devDependencies are needed for `tsc` even when `NODE_ENV=production`); start command
 `npm start`. Terminate TLS in front of the app and set `APP_ORIGIN` to the https URL; HSTS, `Secure` cookies and
 `upgrade-insecure-requests` switch on automatically in production. WebSockets (live voice) must be enabled on the
-platform. Run `purgeExpired` (see `src/routes/indoor.ts`) on a schedule if you enable stored photos.
+platform.
 
 ## Google sign-in (optional)
 
@@ -65,4 +64,4 @@ Set `GOOGLE_GEMINI_API_KEY` (create it in Google AI Studio), `LIVE_AI_ENABLED=tr
 
 ## Plant guide and Gemini chat
 
-The Plants page lists nine easy-care houseplants with original illustrations, filtered by room light and pets. The chat uses Gemini text (`GOOGLE_GEMINI_API_KEY` plus `GOOGLE_GEMINI_CHAT_MODEL`, Render default `gemini-3.5-flash-lite`). Replies are schema-validated and blocked if they claim plants clean air, quote an AQI number or include a link. A pet or child eating a plant gets fixed urgent guidance (vet or poison control) without calling the model. The earlier sensor and camera checks live under "Advanced" on the same page.
+The Plants page lists nine easy-care houseplants with original illustrations, filtered by room light and pets. The chat uses Gemini text (`GOOGLE_GEMINI_API_KEY` plus `GOOGLE_GEMINI_CHAT_MODEL`, Render default `gemini-3.5-flash-lite`). Replies are schema-validated and blocked if they claim plants clean air, quote an AQI number or include a link. A pet or child eating a plant gets fixed urgent guidance (vet or poison control) without calling the model. The sensor readings check lives under "Advanced" on the same page.

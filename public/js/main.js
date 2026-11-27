@@ -78,7 +78,6 @@ async function loadConfig() {
     );
     show(b);
   }
-  show($('camera-block'), i.vision);
   const voiceOk = Boolean(i.live && navigator.mediaDevices?.getUserMedia);
   show($('voice-btn'), voiceOk);
   show($('talk-btn'), voiceOk);
@@ -254,7 +253,6 @@ function syncButtons() {
   $('plan-hint').textContent = ready
     ? 'Plans use your household and the latest verified air-quality data.'
     : 'Save your household first.';
-  $('visual-btn').disabled = !(ready && $('img').files?.length);
 }
 
 // ---- Plan -------------------------------------------------------------------------------------
@@ -409,92 +407,6 @@ async function refreshIndoor() {
     );
   } catch {
     /* leave default text */
-  }
-}
-
-async function submitVisual(ev) {
-  ev.preventDefault();
-  const f = $('img').files[0];
-  const msg = $('visual-msg');
-  const out = $('visual-out');
-  if (!f) return;
-  const fd = new FormData();
-  fd.append('householdId', state.householdId);
-  fd.append('storeImage', $('v-store').checked ? 'true' : 'false');
-  fd.append('consent', $('v-store').checked ? 'true' : 'false');
-  for (const [id, k] of [
-    ['v-area', 'roomAreaM2'],
-    ['v-height', 'ceilingHeightM'],
-    ['v-cadr', 'cadrM3h'],
-  ])
-    if ($(id).value.trim()) fd.append(k, $(id).value.trim());
-  fd.append('image', f);
-  $('visual-btn').disabled = true;
-  setMsg(msg, 'Checking the photo…');
-  try {
-    const d = await api('POST', '/api/v1/indoor/visual-assessment', undefined, { form: fd });
-    show(msg, false);
-    clear(out);
-    show(out);
-    const list = (t, xs) =>
-      xs.length
-        ? [
-            h('h4', {}, t),
-            h(
-              'ul',
-              {},
-              xs.map((x) => h('li', {}, x)),
-            ),
-          ]
-        : [];
-    out.append(
-      h('p', { class: 'disclaimer' }, d.disclaimer),
-      h('p', {}, `Confidence: ${d.confidence}`),
-      ...list('What the photo shows', d.observations),
-      ...list(
-        'Possible sources',
-        d.possibleSources.map((s) => `${s.source}: ${s.basis}`),
-      ),
-      ...list('Ventilation', d.ventilationNotes),
-      ...list('Suggested checks', d.suggestedChecks),
-      h('h4', {}, 'Plants (optional)'),
-      h('p', {}, `${d.plants.guidance} ${d.plants.safetyCheck}`),
-      h('h4', {}, 'Purifier'),
-      h('p', {}, d.purifier.message),
-      ...list('Limits', d.limitations),
-      h(
-        'p',
-        { class: 'hint' },
-        d.stored
-          ? 'This photo is stored encrypted. It is deleted after the retention period.'
-          : 'This photo was not stored.',
-      ),
-    );
-    if (d.imageId)
-      out.append(
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'secondary',
-            onclick: async (e) => {
-              try {
-                await api('DELETE', `/api/v1/indoor/images/${d.imageId}`);
-                e.target.textContent = 'Deleted';
-                e.target.disabled = true;
-              } catch (er) {
-                setMsg(msg, errText(er));
-              }
-            },
-          },
-          'Delete stored photo',
-        ),
-      );
-  } catch (e) {
-    show(out, false);
-    setMsg(msg, errText(e));
-  } finally {
-    syncButtons();
   }
 }
 
@@ -726,8 +638,6 @@ $('geo').addEventListener('click', () => {
 $('house-form').addEventListener('submit', saveHousehold);
 $('plan-btn').addEventListener('click', () => void buildPlan());
 $('compare-btn').addEventListener('click', () => void compare());
-$('img').addEventListener('change', syncButtons);
-$('visual-form').addEventListener('submit', submitVisual);
 $('chat-form').addEventListener('submit', ask);
 $('voice-btn').addEventListener('click', () => void voiceStart());
 $('voice-stop').addEventListener('click', () => state.voice?.stop());

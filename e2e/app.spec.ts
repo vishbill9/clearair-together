@@ -1,6 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import sharp from 'sharp';
 
 async function view(page: Page, name: string) {
   await page.evaluate((v) => {
@@ -88,31 +87,6 @@ test('assistant answers with structure, emergency wording bypasses the model', a
   await page.getByLabel('Your question').fill("I can't breathe and have chest pain");
   await page.getByRole('button', { name: 'Ask', exact: true }).click();
   await expect(page.locator('.msg.emergency')).toContainText('not an emergency service');
-});
-
-test('camera check shows the not-measured disclaimer and never an AQI', async ({ page }) => {
-  await page.goto('/');
-  await setLocation(page, '25.5', '77.21');
-  await view(page, 'household');
-  await page.getByRole('button', { name: 'Save household' }).click();
-  await expect(page.locator('#house-msg')).toHaveText('Household saved.');
-  await view(page, 'indoor');
-  await page.locator('details.adv summary').click();
-  const img = await sharp({ create: { width: 80, height: 60, channels: 3, background: '#789' } })
-    .jpeg()
-    .toBuffer();
-  await page
-    .getByLabel('Photo (JPEG, PNG or WebP)')
-    .setInputFiles({ name: 'room.jpg', mimeType: 'image/jpeg', buffer: img });
-  await page.getByLabel('Room floor area (m²)').fill('12');
-  await page.getByLabel('Ceiling height (m)').fill('2.5');
-  await page.getByLabel('Purifier CADR (m³/h)').fill('150');
-  await page.getByRole('button', { name: 'Check photo' }).click();
-  await expect(page.locator('.disclaimer')).toHaveText(
-    'Camera assessment only — this is not a measured indoor AQI.',
-  );
-  await expect(page.locator('#visual-out')).toContainText('room volumes of clean air per hour');
-  await expect(page.locator('#indoor-status')).toContainText('Indoor air quality is not measured');
 });
 
 test('community challenge hides counts below k=5', async ({ page }) => {

@@ -94,8 +94,7 @@ export function buildIndoorStatus(
       status: 'no_recent_sensor_data',
       measuredAqi: null,
       readings: [],
-      message:
-        'No recent sensor reading. Indoor air quality is not measured. A camera assessment cannot replace a sensor.',
+      message: 'No recent sensor reading. Indoor air quality is not measured.',
     };
   }
   const latest = new Map<string, (typeof recent)[number]>();

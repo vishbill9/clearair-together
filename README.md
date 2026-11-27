@@ -7,7 +7,7 @@ data is missing, stale or the provider is down, the app says so and shows no num
 - **Exposure and emissions are separate.** Every recommendation and routine comparison shows what you breathe and what your choice puts in the air as independent columns, because they often disagree.
 - **Honest states.** `fresh`, `cached`, `stale`, `unavailable`, `not_configured`. Each one is visible in the UI and the API.
 - **Safety-checked AI.** The Claude assistant gets structured, verified context. Its JSON output is schema-validated and then passed through a deterministic safety policy before anyone sees it.
-- **Private by default.** Rounded coordinates, age groups instead of identities, k-anonymous community totals, ephemeral photos, no stored audio.
+- **Private by default.** Rounded coordinates, age groups instead of identities, k-anonymous community totals, no stored audio.
 
 ## Quick start
 
@@ -49,7 +49,6 @@ it refuses to start unless `DATABASE_URL`, `GOOGLE_AIR_QUALITY_API_KEY`, an assi
 | `POST /scenarios/compare`                                                                  | Routine comparison with separate exposure and emissions                        |
 | `POST /recommendations/:id/feedback`                                                       | helpful / not_helpful / done / not_feasible                                    |
 | `POST /community/challenges`, `POST …/:id/join`, `POST …/:id/actions`, `GET …/:id/summary` | Aggregate-only, k-anonymous (k=5)                                              |
-| `POST /indoor/visual-assessment`                                                           | Optional camera check (`visual_only`, `measuredAqi: null`)                     |
 | `POST /indoor/sensor-reading`, `GET /indoor/status`                                        | Only sensor data can produce a measured indoor status                          |
 | `WS /live/voice`, `POST /live/voice/stop`                                                  | Optional live voice via a Gemini Live proxy                                    |
 

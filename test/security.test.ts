@@ -31,7 +31,7 @@ describe('security headers', () => {
     assert.equal(res.headers['referrer-policy'], 'no-referrer');
     assert.equal(res.headers['x-powered-by'], undefined);
     const pp = String(res.headers['permissions-policy']);
-    assert.match(pp, /camera=\(self\)/);
+    assert.match(pp, /camera=\(\)/);
     assert.match(pp, /payment=\(\)/);
     assert.equal(res.headers['cache-control'], 'no-store');
     assert.equal(res.headers['strict-transport-security'], undefined, 'HSTS only in production');

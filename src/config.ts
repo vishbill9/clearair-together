@@ -42,16 +42,10 @@ const envSchema = z.object({
   TRUST_PROXY: bool,
   GOOGLE_GEMINI_API_KEY: optionalString,
   GOOGLE_GEMINI_LIVE_MODEL: optionalString,
-  GOOGLE_GEMINI_VISION_MODEL: optionalString,
   GOOGLE_GEMINI_CHAT_MODEL: optionalString,
   LIVE_AI_ENABLED: bool,
   MAX_LIVE_SESSION_SECONDS: intInRange(300, 2, 3600),
   LIVE_IDLE_TIMEOUT_SECONDS: intInRange(30, 1, 600),
-  MAX_IMAGE_BYTES: intInRange(5_242_880, 10_000, 20_000_000),
-  MAX_IMAGE_DIMENSION: intInRange(4096, 64, 12_000),
-  IMAGE_ENCRYPTION_KEY: optionalString,
-  IMAGE_RETENTION_DAYS: intInRange(30, 1, 365),
-  VISION_RATE_LIMIT_PER_MINUTE: intInRange(6, 1, 600),
 });
 
 export interface Config {
@@ -80,16 +74,8 @@ export interface Config {
     /** Text model for the plant chat (Gemini generateContent). */
     chatModel?: string;
     liveModel?: string;
-    visionModel?: string;
     maxSessionSeconds: number;
     idleTimeoutSeconds: number;
-  };
-  images: {
-    maxBytes: number;
-    maxDimension: number;
-    encryptionKey?: Buffer;
-    retentionDays: number;
-    visionRateLimitPerMinute: number;
   };
   /** Which upstream integrations have credentials. Used to show explicit "not configured" states. */
   integrations: {
@@ -98,7 +84,6 @@ export interface Config {
     googleLogin: boolean;
     assistant: boolean;
     live: boolean;
-    vision: boolean;
     plantChat: boolean;
   };
 }
@@ -168,13 +153,6 @@ export function loadConfig(
     sessionSecret = cryptoRandom();
   }
 
-  let encryptionKey: Buffer | undefined;
-  if (e.IMAGE_ENCRYPTION_KEY) {
-    encryptionKey = Buffer.from(e.IMAGE_ENCRYPTION_KEY, 'base64');
-    if (encryptionKey.length !== 32)
-      throw new ConfigError('IMAGE_ENCRYPTION_KEY must be 32 bytes, base64-encoded.');
-  }
-
   const splitList = (v: string) =>
     v
       .split(',')
@@ -217,17 +195,9 @@ export function loadConfig(
       enabled: e.LIVE_AI_ENABLED,
       geminiApiKey: e.GOOGLE_GEMINI_API_KEY,
       liveModel: e.GOOGLE_GEMINI_LIVE_MODEL,
-      visionModel: e.GOOGLE_GEMINI_VISION_MODEL,
       chatModel: e.GOOGLE_GEMINI_CHAT_MODEL,
       maxSessionSeconds: e.MAX_LIVE_SESSION_SECONDS,
       idleTimeoutSeconds: e.LIVE_IDLE_TIMEOUT_SECONDS,
-    },
-    images: {
-      maxBytes: e.MAX_IMAGE_BYTES,
-      maxDimension: e.MAX_IMAGE_DIMENSION,
-      encryptionKey,
-      retentionDays: e.IMAGE_RETENTION_DAYS,
-      visionRateLimitPerMinute: e.VISION_RATE_LIMIT_PER_MINUTE,
     },
     integrations: {
       database: Boolean(e.DATABASE_URL),
@@ -235,7 +205,6 @@ export function loadConfig(
       googleLogin: Boolean(e.GOOGLE_OAUTH_CLIENT_ID && e.GOOGLE_OAUTH_CLIENT_SECRET),
       assistant: aiProvider !== null,
       live: e.LIVE_AI_ENABLED && Boolean(e.GOOGLE_GEMINI_API_KEY && e.GOOGLE_GEMINI_LIVE_MODEL),
-      vision: Boolean(e.GOOGLE_GEMINI_API_KEY && e.GOOGLE_GEMINI_VISION_MODEL),
       plantChat: Boolean(e.GOOGLE_GEMINI_API_KEY && e.GOOGLE_GEMINI_CHAT_MODEL),
     },
   };

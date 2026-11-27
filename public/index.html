@@ -413,40 +413,11 @@
           </div>
         </section>
         <details class="panel adv">
-          <summary>Advanced: sensor readings and camera check</summary>
+          <summary>Advanced: sensor readings</summary>
           <section aria-labelledby="h-indoor">
-            <h2 id="h-indoor">Sensor and camera checks</h2>
+            <h2 id="h-indoor">Sensor readings</h2>
             <div id="indoor-status" class="empty">
               Indoor air quality is only reported from a real sensor reading. None yet.
-            </div>
-            <div id="camera-block" hidden>
-              <h3>Camera check</h3>
-              <p class="hint">Look for possible sources and ventilation clues in a photo of a room.</p>
-              <form id="visual-form" novalidate>
-                <div class="field">
-                  <label for="img">Photo (JPEG, PNG or WebP)</label
-                  ><input id="img" type="file" accept="image/jpeg,image/png,image/webp" />
-                </div>
-                <div class="row">
-                  <div class="field">
-                    <label for="v-area">Room floor area (m²)</label><input id="v-area" inputmode="decimal" />
-                  </div>
-                  <div class="field">
-                    <label for="v-height">Ceiling height (m)</label
-                    ><input id="v-height" inputmode="decimal" />
-                  </div>
-                  <div class="field">
-                    <label for="v-cadr">Purifier CADR (m³/h)</label><input id="v-cadr" inputmode="decimal" />
-                  </div>
-                </div>
-                <label class="check"
-                  ><input type="checkbox" id="v-store" /> Keep this photo, encrypted, for the retention
-                  period</label
-                >
-                <button type="submit" id="visual-btn" disabled>Check photo</button>
-              </form>
-              <p id="visual-msg" class="notice" hidden></p>
-              <div id="visual-out" hidden></div>
             </div>
           </section>
         </details>

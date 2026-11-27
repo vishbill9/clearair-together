@@ -55,7 +55,7 @@ export async function registerSecurity(app: FastifyInstance, config: Config): Pr
   app.addHook('onSend', async (_req, reply) => {
     reply.header(
       'permissions-policy',
-      'camera=(self), microphone=(self), geolocation=(self), payment=(), usb=(), bluetooth=(), serial=(), display-capture=(), interest-cohort=()',
+      'camera=(), microphone=(self), geolocation=(self), payment=(), usb=(), bluetooth=(), serial=(), display-capture=(), interest-cohort=()',
     );
     if (_req.url.startsWith('/api/') || _req.url === '/health') reply.header('cache-control', 'no-store');
   });
