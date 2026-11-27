@@ -65,6 +65,7 @@ body[data-sky='very_unhealthy'] { --sky-top: #cdb0c8; --sky-bottom: #f1e8f0; }
   body[data-sky='very_unhealthy'] { --sky-top: #3f1f3d; --sky-bottom: #1a1020; }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; scroll-padding-top: 5rem; }
 body {
   margin: 0;

@@ -155,7 +155,14 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     index: ['index.html'],
     wildcard: false,
     decorateReply: false,
-    maxAge: config.isProduction ? '1h' : 0,
+    // HTML/CSS/JS revalidate on every load (ETag), so a deploy can never leave a page paired with old
+    // styles or scripts. Fonts are versioned by file name and cached for a year.
+    setHeaders: (res, filePath) => {
+      res.header(
+        'cache-control',
+        filePath.includes('/fonts/') ? 'public, max-age=31536000, immutable' : 'no-cache',
+      );
+    },
     dotfiles: 'deny',
   });
 
