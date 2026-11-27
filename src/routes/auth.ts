@@ -25,7 +25,9 @@ const registerSchema = z
   .strict();
 const loginSchema = z.object({ email, password: z.string().min(1).max(128) }).strict();
 
-const strict = { config: { rateLimit: { max: 10, timeWindow: '1 minute', keyGenerator: (r: { ip: string }) => r.ip } } };
+const strict = {
+  config: { rateLimit: { max: 10, timeWindow: '1 minute', keyGenerator: (r: { ip: string }) => r.ip } },
+};
 
 export async function registerAuth(app: FastifyInstance, ctx: AppContext): Promise<void> {
   const setSession = (reply: Parameters<typeof ensureUser>[2], userId: string) =>
@@ -71,10 +73,19 @@ export async function registerAuth(app: FastifyInstance, ctx: AppContext): Promi
     try {
       await db
         .update(users)
-        .set({ kind: 'registered', email: body.email, passwordHash: hash, displayName: body.displayName ?? null })
+        .set({
+          kind: 'registered',
+          email: body.email,
+          passwordHash: hash,
+          displayName: body.displayName ?? null,
+        })
         .where(eq(users.id, userId));
     } catch (e) {
-      if (/users_email_unique|duplicate key/i.test((e as Error).message + String((e as { cause?: unknown }).cause))) {
+      if (
+        /users_email_unique|duplicate key/i.test(
+          (e as Error).message + String((e as { cause?: unknown }).cause),
+        )
+      ) {
         throw new AppError('conflict', 409, 'An account with this email already exists. Try signing in.');
       }
       throw e;

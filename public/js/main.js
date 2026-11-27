@@ -734,7 +734,8 @@ function askText(text) {
   $('chat-input').value = text;
   $('chat-form').requestSubmit();
 }
-for (const c of document.querySelectorAll('.chip[data-q]')) c.addEventListener('click', () => askText(c.dataset.q));
+for (const c of document.querySelectorAll('.chip[data-q]'))
+  c.addEventListener('click', () => askText(c.dataset.q));
 $('explain-btn').addEventListener('click', () =>
   askText('Explain this air-quality reading in simple words and tell me what I should do about it today.'),
 );

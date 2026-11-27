@@ -4,7 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ClearAir Together</title>
-    <meta name="description" content="Household air-quality guidance based on verified data, with exposure and emissions kept separate." />
+    <meta
+      name="description"
+      content="Household air-quality guidance based on verified data, with exposure and emissions kept separate."
+    />
     <link rel="stylesheet" href="/styles.css" />
     <script type="module" src="/js/main.js"></script>
   </head>
@@ -14,9 +17,9 @@
       <div class="top-in">
         <a class="brand" href="#/today" aria-label="ClearAir Together, home">
           <svg class="logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-            <circle cx="16" cy="16" r="14" class="logo-ring"/>
-            <path d="M7 19c3-5 6-5 9 0s6 5 9 0" class="logo-wave"/>
-            <path d="M7 13c3-5 6-5 9 0s6 5 9 0" class="logo-wave"/>
+            <circle cx="16" cy="16" r="14" class="logo-ring" />
+            <path d="M7 19c3-5 6-5 9 0s6 5 9 0" class="logo-wave" />
+            <path d="M7 13c3-5 6-5 9 0s6 5 9 0" class="logo-wave" />
           </svg>
           <span>ClearAir <em>Together</em></span>
         </a>
@@ -29,7 +32,14 @@
           <a href="#/community" data-view="community">Community</a>
         </nav>
         <div class="account" id="account">
-          <button type="button" id="account-btn" class="account-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu">
+          <button
+            type="button"
+            id="account-btn"
+            class="account-btn"
+            aria-haspopup="menu"
+            aria-expanded="false"
+            aria-controls="account-menu"
+          >
             <span class="avatar" id="avatar" aria-hidden="true">?</span>
             <span id="account-label">Sign in</span>
           </button>
@@ -46,22 +56,32 @@
     <div id="config-banner" class="banner" role="status" hidden></div>
 
     <main id="main" tabindex="-1">
-
       <section class="view" id="view-today" data-title="Today" hidden>
         <div class="hero" id="hero">
           <p class="hero-kicker" id="hero-kicker">Air quality now</p>
           <h1 class="hero-title" id="hero-title" tabindex="-1">Where are you breathing today?</h1>
-          <p class="hero-sub" id="hero-sub">Share your location for a real reading. If there isn’t one, we’ll say so instead of guessing.</p>
+          <p class="hero-sub" id="hero-sub">
+            Share your location for a real reading. If there isn’t one, we’ll say so instead of guessing.
+          </p>
           <form id="loc-form" class="loc" novalidate>
-            <div class="field"><label for="lat">Latitude</label><input id="lat" name="lat" inputmode="decimal" autocomplete="off" required /></div>
-            <div class="field"><label for="lng">Longitude</label><input id="lng" name="lng" inputmode="decimal" autocomplete="off" required /></div>
+            <div class="field">
+              <label for="lat">Latitude</label
+              ><input id="lat" name="lat" inputmode="decimal" autocomplete="off" required />
+            </div>
+            <div class="field">
+              <label for="lng">Longitude</label
+              ><input id="lng" name="lng" inputmode="decimal" autocomplete="off" required />
+            </div>
             <div class="actions">
               <button type="button" id="geo" class="secondary">Use my location</button>
               <button type="submit">Check air quality</button>
             </div>
           </form>
           <p id="loc-error" class="error" role="alert" hidden></p>
-          <p class="hint">Coordinates are rounded to about 1 km. Your browser only shares your position if you press the button.</p>
+          <p class="hint">
+            Coordinates are rounded to about 1 km. Your browser only shares your position if you press the
+            button.
+          </p>
           <div class="hero-actions" id="hero-actions" hidden>
             <button type="button" id="explain-btn" class="chip-btn">Explain this reading</button>
             <button type="button" id="talk-btn" class="chip-btn talk" hidden>
@@ -75,15 +95,15 @@
           <div id="status" hidden>
             <div class="column gauge" id="column" role="img" aria-label="Air quality category">
               <svg viewBox="0 0 240 150" aria-hidden="true" focusable="false">
-            <path class="seg seg-good" d="M24.0 118.0 A96 96 0 0 1 41.2 65.2"/>
-            <path class="seg seg-moderate" d="M43.5 62.0 A96 96 0 0 1 88.4 29.3"/>
-            <path class="seg seg-sensitive" d="M92.3 28.1 A96 96 0 0 1 147.7 28.1"/>
-            <path class="seg seg-unhealthy" d="M151.6 29.3 A96 96 0 0 1 196.5 62.0"/>
-            <path class="seg seg-very" d="M198.8 65.2 A96 96 0 0 1 216.0 118.0"/>
+                <path class="seg seg-good" d="M24.0 118.0 A96 96 0 0 1 41.2 65.2" />
+                <path class="seg seg-moderate" d="M43.5 62.0 A96 96 0 0 1 88.4 29.3" />
+                <path class="seg seg-sensitive" d="M92.3 28.1 A96 96 0 0 1 147.7 28.1" />
+                <path class="seg seg-unhealthy" d="M151.6 29.3 A96 96 0 0 1 196.5 62.0" />
+                <path class="seg seg-very" d="M198.8 65.2 A96 96 0 0 1 216.0 118.0" />
                 <g id="column-marker" class="needle">
-                  <path d="M120 120 L114 118 L120 34 L126 118 Z" class="needle-body"/>
-                  <circle cx="120" cy="120" r="9" class="hub"/>
-                  <circle cx="120" cy="120" r="3.5" class="hub-dot"/>
+                  <path d="M120 120 L114 118 L120 34 L126 118 Z" class="needle-body" />
+                  <circle cx="120" cy="120" r="9" class="hub" />
+                  <circle cx="120" cy="120" r="3.5" class="hub-dot" />
                 </g>
                 <text x="22" y="144" class="end">Better</text>
                 <text x="218" y="144" class="end" text-anchor="end">Worse</text>
@@ -133,30 +153,64 @@
 
       <section class="view" id="view-ask" data-title="Ask &amp; talk" hidden>
         <h1 class="page-title" tabindex="-1">Ask or talk to ClearAir</h1>
-        <p class="lead">Plain-language guidance based on the air-quality reading above. General guidance only; it cannot diagnose or replace medical care or emergency services.</p>
+        <p class="lead">
+          Plain-language guidance based on the air-quality reading above. General guidance only; it cannot
+          diagnose or replace medical care or emergency services.
+        </p>
         <div class="ask-grid">
           <section class="panel" aria-labelledby="h-ai">
             <h2 id="h-ai">Type a question</h2>
             <div class="chips" role="group" aria-label="Suggested questions">
-              <button type="button" class="chip" data-q="Is it okay to exercise outside today?">Exercise outside?</button>
-              <button type="button" class="chip" data-q="Should I open the windows today?">Open the windows?</button>
-              <button type="button" class="chip" data-q="Explain the main pollutant right now in simple words.">Explain the pollutant</button>
-              <button type="button" class="chip" data-q="What should I do for my child's school run today?">School run</button>
-              <button type="button" class="chip" data-q="What are the cheapest ways to improve indoor air at home?">Cheap indoor fixes</button>
+              <button type="button" class="chip" data-q="Is it okay to exercise outside today?">
+                Exercise outside?
+              </button>
+              <button type="button" class="chip" data-q="Should I open the windows today?">
+                Open the windows?
+              </button>
+              <button
+                type="button"
+                class="chip"
+                data-q="Explain the main pollutant right now in simple words."
+              >
+                Explain the pollutant
+              </button>
+              <button type="button" class="chip" data-q="What should I do for my child's school run today?">
+                School run
+              </button>
+              <button
+                type="button"
+                class="chip"
+                data-q="What are the cheapest ways to improve indoor air at home?"
+              >
+                Cheap indoor fixes
+              </button>
             </div>
             <div id="chat" class="chat" role="log" aria-live="polite" aria-label="Conversation"></div>
             <form id="chat-form" novalidate>
               <label for="chat-input">Your question</label>
-              <textarea id="chat-input" rows="3" maxlength="800" placeholder="For example: should I move my run to the evening?"></textarea>
+              <textarea
+                id="chat-input"
+                rows="3"
+                maxlength="800"
+                placeholder="For example: should I move my run to the evening?"
+              ></textarea>
               <div class="actions"><button type="submit" id="chat-send">Ask</button></div>
             </form>
           </section>
           <section class="panel voice-card" aria-labelledby="h-voice" id="voice-card">
             <h2 id="h-voice">Talk with Gemini Live</h2>
-            <p class="hint" id="voice-off" hidden>Voice talk is not turned on for this server, or your browser has no microphone access. You can still type.</p>
+            <p class="hint" id="voice-off" hidden>
+              Voice talk is not turned on for this server, or your browser has no microphone access. You can
+              still type.
+            </p>
             <div id="voice-on">
-              <p class="lead small">Speak naturally and interrupt any time. You get live captions and the same safety checks as typed answers. Audio is streamed, not saved.</p>
-              <button type="button" id="voice-btn" class="talk-big" hidden><span class="orb" aria-hidden="true"></span><span>Start voice</span></button>
+              <p class="lead small">
+                Speak naturally and interrupt any time. You get live captions and the same safety checks as
+                typed answers. Audio is streamed, not saved.
+              </p>
+              <button type="button" id="voice-btn" class="talk-big" hidden>
+                <span class="orb" aria-hidden="true"></span><span>Start voice</span>
+              </button>
             </div>
             <div id="voice-panel" hidden>
               <p class="hint" id="voice-state" role="status"></p>
@@ -169,7 +223,10 @@
 
       <section class="view" id="view-household" data-title="My home" hidden>
         <h1 class="page-title" tabindex="-1">My home</h1>
-        <p class="lead">Tell us about your household so plans fit real life. Only age groups and practical constraints are stored.</p>
+        <p class="lead">
+          Tell us about your household so plans fit real life. Only age groups and practical constraints are
+          stored.
+        </p>
         <section aria-labelledby="h-house" class="panel">
           <h2 id="h-house">Household details</h2>
           <p class="hint">
@@ -356,11 +413,31 @@
     </main>
 
     <nav class="tabbar" id="tabbar" aria-label="Main (mobile)">
-      <a href="#/today" data-view="today"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15a6 6 0 0 1 11-3 4 4 0 1 1 1 8H8a4 4 0 0 1-4-5z"/></svg><span>Today</span></a>
-      <a href="#/ask" data-view="ask"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM6 11a6 6 0 0 0 12 0M12 17v4"/></svg><span>Ask</span></a>
-      <a href="#/household" data-view="household"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg><span>Home</span></a>
-      <a href="#/routines" data-view="routines"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18l5-6 4 3 7-9"/></svg><span>Routines</span></a>
-      <a href="#/community" data-view="community"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="9" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M2 19c1-4 9-4 10 0M13 19c1-3 8-3 9 0"/></svg><span>Together</span></a>
+      <a href="#/today" data-view="today"
+        ><svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 15a6 6 0 0 1 11-3 4 4 0 1 1 1 8H8a4 4 0 0 1-4-5z" /></svg
+        ><span>Today</span></a
+      >
+      <a href="#/ask" data-view="ask"
+        ><svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM6 11a6 6 0 0 0 12 0M12 17v4" /></svg
+        ><span>Ask</span></a
+      >
+      <a href="#/household" data-view="household"
+        ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7M5 10v10h14V10" /></svg
+        ><span>Home</span></a
+      >
+      <a href="#/routines" data-view="routines"
+        ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18l5-6 4 3 7-9" /></svg
+        ><span>Routines</span></a
+      >
+      <a href="#/community" data-view="community"
+        ><svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="8" cy="9" r="3" />
+          <circle cx="17" cy="10" r="2.5" />
+          <path d="M2 19c1-4 9-4 10 0M13 19c1-3 8-3 9 0" /></svg
+        ><span>Together</span></a
+      >
     </nav>
 
     <dialog id="auth-dialog" class="auth" aria-labelledby="auth-title">
@@ -373,18 +450,42 @@
           <button type="button" role="tab" id="tab-signin" aria-selected="true">Sign in</button>
           <button type="button" role="tab" id="tab-register" aria-selected="false">Create account</button>
         </div>
-        <p class="hint" id="auth-hint">Create an account to keep your home and plans across devices. What you’ve already saved comes with you.</p>
-        <div class="field" id="name-field" hidden><label for="auth-name">First name (optional)</label><input id="auth-name" maxlength="60" autocomplete="given-name" /></div>
-        <div class="field"><label for="auth-email">Email</label><input id="auth-email" type="email" autocomplete="email" maxlength="254" required /></div>
-        <div class="field"><label for="auth-pass">Password</label><input id="auth-pass" type="password" autocomplete="current-password" minlength="10" maxlength="128" required />
-          <span class="hint" id="pass-hint" hidden>At least 10 characters. A few random words work well.</span></div>
+        <p class="hint" id="auth-hint">
+          Create an account to keep your home and plans across devices. What you’ve already saved comes with
+          you.
+        </p>
+        <div class="field" id="name-field" hidden>
+          <label for="auth-name">First name (optional)</label
+          ><input id="auth-name" maxlength="60" autocomplete="given-name" />
+        </div>
+        <div class="field">
+          <label for="auth-email">Email</label
+          ><input id="auth-email" type="email" autocomplete="email" maxlength="254" required />
+        </div>
+        <div class="field">
+          <label for="auth-pass">Password</label
+          ><input
+            id="auth-pass"
+            type="password"
+            autocomplete="current-password"
+            minlength="10"
+            maxlength="128"
+            required
+          />
+          <span class="hint" id="pass-hint" hidden
+            >At least 10 characters. A few random words work well.</span
+          >
+        </div>
         <p id="auth-error" class="error" role="alert" hidden></p>
         <button type="submit" id="auth-submit">Sign in</button>
       </form>
     </dialog>
 
     <footer class="foot">
-      <p>Air-quality data: Google Air Quality API. Items marked “general guidance” are educational, not measurements and not personal medical advice. For urgent symptoms call your local emergency number.</p>
+      <p>
+        Air-quality data: Google Air Quality API. Items marked “general guidance” are educational, not
+        measurements and not personal medical advice. For urgent symptoms call your local emergency number.
+      </p>
     </footer>
   </body>
 </html>

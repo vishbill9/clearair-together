@@ -190,7 +190,10 @@ describe('Ollama adapter', () => {
           ),
         ),
     });
-    await assert.rejects(slow.generate({ ...req, timeoutMs: 20 }), (e: AiProviderError) => e.kind === 'timeout');
+    await assert.rejects(
+      slow.generate({ ...req, timeoutMs: 20 }),
+      (e: AiProviderError) => e.kind === 'timeout',
+    );
     const down = new OllamaProvider({
       apiKey: 'k',
       model: 'm',

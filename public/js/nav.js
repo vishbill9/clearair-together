@@ -42,8 +42,13 @@ const initial = () => (me.displayName || me.email || '?').trim().charAt(0).toUpp
 function paintAccount() {
   $('avatar').textContent = isIn() ? initial() : '?';
   $('account-label').textContent = isIn() ? me.displayName || 'Account' : 'Sign in';
-  $('account-btn').setAttribute('aria-label', isIn() ? `Account menu for ${me.displayName || me.email}` : 'Account menu: sign in or create an account');
-  $('account-who').textContent = isIn() ? `Signed in as ${me.email}` : 'Not signed in. Your data stays on this device.';
+  $('account-btn').setAttribute(
+    'aria-label',
+    isIn() ? `Account menu for ${me.displayName || me.email}` : 'Account menu: sign in or create an account',
+  );
+  $('account-who').textContent = isIn()
+    ? `Signed in as ${me.email}`
+    : 'Not signed in. Your data stays on this device.';
   show($('account-who'));
   show($('menu-signin'), !isIn());
   show($('menu-register'), !isIn());

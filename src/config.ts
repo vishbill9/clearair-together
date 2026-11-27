@@ -112,10 +112,18 @@ export function loadConfig(
   const isProduction = e.NODE_ENV === 'production';
   const aiProvider: 'ollama' | 'anthropic' | null =
     e.AI_PROVIDER === 'anthropic'
-      ? e.ANTHROPIC_API_KEY ? 'anthropic' : null
+      ? e.ANTHROPIC_API_KEY
+        ? 'anthropic'
+        : null
       : e.AI_PROVIDER === 'ollama'
-        ? e.OLLAMA_API_KEY ? 'ollama' : null
-        : e.OLLAMA_API_KEY ? 'ollama' : e.ANTHROPIC_API_KEY ? 'anthropic' : null;
+        ? e.OLLAMA_API_KEY
+          ? 'ollama'
+          : null
+        : e.OLLAMA_API_KEY
+          ? 'ollama'
+          : e.ANTHROPIC_API_KEY
+            ? 'anthropic'
+            : null;
 
   if (isProduction) {
     const missing: string[] = [];

@@ -32,7 +32,12 @@ export async function verifyPassword(password: string, stored: string | null | u
       p: Number(p),
       maxmem: 64 * 1024 * 1024,
     });
-    return stored !== null && stored !== undefined && actual.length === expected.length && timingSafeEqual(actual, expected);
+    return (
+      stored !== null &&
+      stored !== undefined &&
+      actual.length === expected.length &&
+      timingSafeEqual(actual, expected)
+    );
   } catch {
     return false;
   }

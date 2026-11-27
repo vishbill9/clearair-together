@@ -11,7 +11,11 @@ after(async () => {
   await h.close();
 });
 
-const creds = (email = 'asha@example.com') => ({ email, password: 'correct horse battery', displayName: 'Asha' });
+const creds = (email = 'asha@example.com') => ({
+  email,
+  password: 'correct horse battery',
+  displayName: 'Asha',
+});
 
 describe('password hashing', () => {
   it('verifies the right password only and never accepts a missing hash', async () => {
@@ -46,15 +50,24 @@ describe('accounts', () => {
 
     const bad = await a.post('/api/v1/auth/login', { email: 'asha@example.com', password: 'nope-nope-nope' });
     assert.equal(bad.statusCode, 401);
-    const good = await a.post('/api/v1/auth/login', { email: 'ASHA@example.com', password: 'correct horse battery' });
+    const good = await a.post('/api/v1/auth/login', {
+      email: 'ASHA@example.com',
+      password: 'correct horse battery',
+    });
     assert.equal(good.statusCode, 200, good.body);
     assert.equal((await a.get(`/api/v1/households/${hid}`)).statusCode, 200);
   });
 
   it('does not reveal whether an email exists on failed login', async () => {
     const a = h.agent();
-    const r1 = await a.post('/api/v1/auth/login', { email: 'asha@example.com', password: 'wrong-password-1' });
-    const r2 = await a.post('/api/v1/auth/login', { email: 'nobody@example.com', password: 'wrong-password-1' });
+    const r1 = await a.post('/api/v1/auth/login', {
+      email: 'asha@example.com',
+      password: 'wrong-password-1',
+    });
+    const r2 = await a.post('/api/v1/auth/login', {
+      email: 'nobody@example.com',
+      password: 'wrong-password-1',
+    });
     assert.equal(r1.statusCode, 401);
     assert.equal(r2.statusCode, 401);
     assert.equal(json(r1).error.message, json(r2).error.message);
@@ -65,10 +78,19 @@ describe('accounts', () => {
     const dup = await a.post('/api/v1/auth/register', creds());
     assert.equal(dup.statusCode, 409);
     const b = h.agent();
-    assert.equal((await b.post('/api/v1/auth/register', { ...creds('b@example.com'), password: 'short' })).statusCode, 400);
-    assert.equal((await b.post('/api/v1/auth/register', { ...creds('b@example.com'), kind: 'admin' })).statusCode, 400);
+    assert.equal(
+      (await b.post('/api/v1/auth/register', { ...creds('b@example.com'), password: 'short' })).statusCode,
+      400,
+    );
+    assert.equal(
+      (await b.post('/api/v1/auth/register', { ...creds('b@example.com'), kind: 'admin' })).statusCode,
+      400,
+    );
     assert.equal((await b.post('/api/v1/auth/register', { ...creds('not-an-email') })).statusCode, 400);
-    assert.equal((await b.post('/api/v1/auth/register', creds('c@example.com'), { csrf: false })).statusCode, 403);
+    assert.equal(
+      (await b.post('/api/v1/auth/register', creds('c@example.com'), { csrf: false })).statusCode,
+      403,
+    );
   });
 
   it("another account cannot read someone's household after sign-in", async () => {
@@ -85,7 +107,8 @@ describe('accounts', () => {
     const a = h.agent();
     let last = 0;
     for (let i = 0; i < 14; i++) {
-      last = (await a.post('/api/v1/auth/login', { email: 'x@example.com', password: 'wrong-password-1' })).statusCode;
+      last = (await a.post('/api/v1/auth/login', { email: 'x@example.com', password: 'wrong-password-1' }))
+        .statusCode;
     }
     assert.equal(last, 429);
   });
