@@ -2,6 +2,13 @@ import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import sharp from 'sharp';
 
+async function view(page: Page, name: string) {
+  await page.evaluate((v) => {
+    location.hash = `#/${v}`;
+  }, name);
+  await expect(page.locator(`#view-${name}`)).toBeVisible();
+}
+
 async function setLocation(page: Page, lat: string, lng: string) {
   await page.getByLabel('Latitude').fill(lat);
   const off = test.info().project.name === 'mobile' ? 1 : 0; // separate cache key per project
@@ -11,7 +18,7 @@ async function setLocation(page: Page, lat: string, lng: string) {
 
 test('shows real-data status with provenance and freshness', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'ClearAir Together' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'ClearAir Together, home' })).toBeVisible();
   await expect(page.getByText('Enter a location to see current air quality.')).toBeVisible();
   await setLocation(page, '21.5', '77.21');
   await expect(page.locator('#fresh-badge')).toHaveText('Live');
@@ -43,11 +50,13 @@ test('household, daily plan, feedback, routine comparison with separate columns'
   await page.goto('/');
   await setLocation(page, '23.5', '77.21');
   await expect(page.locator('#fresh-badge')).toHaveText('Live');
+  await view(page, 'household');
   await page.getByLabel('A child lives here').check();
   await page.getByLabel('Usual commute').selectOption('car');
   await page.getByLabel('I can work from home').check();
   await page.getByRole('button', { name: 'Save household' }).click();
   await expect(page.locator('#house-msg')).toHaveText('Household saved.');
+  await view(page, 'today');
   await page.getByRole('button', { name: 'Build today’s plan' }).click();
   await expect(page.locator('#plan-items li').first()).toBeVisible();
   await expect(page.locator('#quick-wins')).toContainText('Use the exhaust fan');
@@ -56,6 +65,7 @@ test('household, daily plan, feedback, routine comparison with separate columns'
   await first.getByRole('button', { name: 'Helpful', exact: true }).click();
   await expect(first.getByRole('status')).toHaveText('Saved.');
 
+  await view(page, 'routines');
   await page.getByRole('button', { name: 'Compare', exact: true }).click();
   const table = page.locator('#compare-tbl');
   await expect(table).toBeVisible();
@@ -67,6 +77,7 @@ test('household, daily plan, feedback, routine comparison with separate columns'
 test('assistant answers with structure, emergency wording bypasses the model', async ({ page }) => {
   await page.goto('/');
   await setLocation(page, '24.5', '77.21');
+  await view(page, 'ask');
   await page.getByLabel('Your question').fill('Should I run outside tomorrow?');
   await page.getByRole('button', { name: 'Ask', exact: true }).click();
   const bot = page.locator('.msg.bot').last();
@@ -82,8 +93,10 @@ test('assistant answers with structure, emergency wording bypasses the model', a
 test('camera check shows the not-measured disclaimer and never an AQI', async ({ page }) => {
   await page.goto('/');
   await setLocation(page, '25.5', '77.21');
+  await view(page, 'household');
   await page.getByRole('button', { name: 'Save household' }).click();
   await expect(page.locator('#house-msg')).toHaveText('Household saved.');
+  await view(page, 'indoor');
   const img = await sharp({ create: { width: 80, height: 60, channels: 3, background: '#789' } })
     .jpeg()
     .toBuffer();
@@ -102,7 +115,7 @@ test('camera check shows the not-measured disclaimer and never an AQI', async ({
 });
 
 test('community challenge hides counts below k=5', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/community');
   await page.getByRole('button', { name: 'Start a challenge' }).click();
   await expect(page.locator('#chal-count')).toContainText('Fewer than 5');
   await expect(page.locator('#chal-actions')).toContainText('once at least 5 people take part');
@@ -154,4 +167,41 @@ test('no horizontal scroll at phone width', async ({ page }) => {
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
   );
   expect(overflow).toBe(false);
+});
+
+test('sign up, see the account menu, sign out and back in', async ({ page }) => {
+  const email = `e2e-${test.info().project.name}-${Date.now()}@example.com`;
+  await page.goto('/');
+  await page.locator('#account-btn').click();
+  await page.getByRole('menuitem', { name: 'Create account' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByLabel('First name (optional)').fill('Asha');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill('a long passphrase 1');
+  await page.getByRole('button', { name: 'Create account' }).last().click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await page.locator('#account-btn').click();
+  await expect(page.locator('#account-who')).toContainText(email);
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
+  await page.locator('#account-btn').click();
+  await page.getByRole('menuitem', { name: 'Sign in' }).click();
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill('wrong passphrase 1');
+  await page.getByRole('button', { name: 'Sign in' }).last().click();
+  await expect(page.locator('#auth-error')).toContainText('do not match');
+  await page.getByLabel('Password').fill('a long passphrase 1');
+  await page.getByRole('button', { name: 'Sign in' }).last().click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+});
+
+test('menu switches views and the sky follows the verified category', async ({ page }) => {
+  await page.goto('/');
+  await setLocation(page, '29.5', '77.21');
+  await expect(page.locator('#fresh-badge')).toHaveText('Live');
+  await expect(page.locator('body')).not.toHaveAttribute('data-sky', 'none');
+  await expect(page.locator('#hero-title')).not.toHaveText('Where are you breathing today?');
+  await view(page, 'ask');
+  await expect(page.getByRole('heading', { name: 'Ask or talk to ClearAir' })).toBeVisible();
+  await page.locator('.chip[data-q]').first().click();
+  await expect(page.locator('.msg.user').last()).toContainText('exercise');
 });

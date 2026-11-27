@@ -19,3 +19,11 @@
 
 Known dev-only advisory: `drizzle-kit` pulls a deprecated `@esbuild-kit/*` chain flagged for an esbuild dev-server issue
 (moderate). It is used only to generate migrations, is not installed in production images, and is not reachable at runtime.
+
+## Accounts
+
+- Sign-up upgrades the current anonymous user in place, so households saved before sign-up are kept. Email is stored lower-cased and unique.
+- Passwords are hashed with scrypt (N=16384, r=8, p=1, per-user salt) and never returned or logged. Login does the same work whether or not the email exists and returns one generic error, so it does not reveal which emails are registered.
+- `/api/v1/auth/*` is limited to 10 requests per minute per IP, on top of the global limit. All auth writes need the CSRF token like every other mutating route.
+- Sign-out clears the session cookie. Tests: `test/auth.test.ts`, e2e "sign up, see the account menu, sign out and back in".
+- Not included yet: password reset by email, email verification and account deletion. Add them before opening sign-up to the public.

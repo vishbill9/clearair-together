@@ -27,10 +27,22 @@ export const users = pgTable(
   {
     id: id(),
     kind: text('kind').notNull().default('anonymous'),
+    /** Lower-cased. Only set for registered accounts. */
+    email: text('email'),
+    /** scrypt$N$r$p$salt$hash (base64url). Never returned by any API. */
+    passwordHash: text('password_hash'),
+    displayName: text('display_name'),
     createdAt: createdAt(),
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [check('users_kind_check', sql`${t.kind} in ('anonymous','registered')`)],
+  (t) => [
+    check('users_kind_check', sql`${t.kind} in ('anonymous','registered')`),
+    uniqueIndex('users_email_unique').on(t.email),
+    check(
+      'users_registered_has_credentials',
+      sql`${t.kind} <> 'registered' or (${t.email} is not null and ${t.passwordHash} is not null)`,
+    ),
+  ],
 );
 
 export const households = pgTable(

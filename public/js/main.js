@@ -1,6 +1,7 @@
 import { $, h, clear, show } from './dom.js';
 import { api, ApiError } from './api.js';
 import { startVoice } from './voice.js';
+import { go, initNav } from './nav.js';
 
 const state = { loc: null, aq: null, householdId: null, config: null, challengeId: null, voice: null };
 const store = {
@@ -77,7 +78,12 @@ async function loadConfig() {
     show(b);
   }
   show($('camera-block'), i.vision);
-  show($('voice-btn'), i.live && Boolean(navigator.mediaDevices?.getUserMedia));
+  const voiceOk = Boolean(i.live && navigator.mediaDevices?.getUserMedia);
+  show($('voice-btn'), voiceOk);
+  show($('talk-btn'), voiceOk);
+  show($('voice-on'), voiceOk);
+  show($('voice-off'), !voiceOk);
+  $('explain-btn').disabled = !i.assistant;
   if (!i.assistant) $('chat-send').disabled = false; // still lets emergency wording through
 }
 
@@ -102,6 +108,14 @@ function renderStatus(d) {
       ? 'Air-quality data is not configured'
       : 'No reading available';
   setMsg($('status-reason'), d.reason);
+  const real = Boolean(s) && d.severity !== 'unknown';
+  document.body.dataset.sky = real ? d.severity : 'none';
+  $('hero-kicker').textContent = `Air quality now · ${STATUS_TEXT[d.status] ?? d.status}`;
+  $('hero-title').textContent = $('status-headline').textContent;
+  $('hero-sub').textContent = p
+    ? `${p.displayName}: ${p.aqi}. Observed ${fmt(s.observedAt)}.${d.status === 'stale' ? ' The provider could not be reached, so this reading is older than usual.' : ''}`
+    : d.reason || 'We only show real readings, so there is nothing to display for this place right now.';
+  show($('hero-actions'));
   const fb = $('fresh-badge');
   fb.textContent = STATUS_TEXT[d.status] ?? d.status;
   fb.dataset.s = d.status;
@@ -597,6 +611,7 @@ async function ask(ev) {
 // ---- Voice ------------------------------------------------------------------------------------
 async function voiceStart() {
   show($('voice-panel'));
+  $('voice-card').classList.add('voice-live');
   clear($('captions'));
   $('voice-state').textContent = 'Asking for microphone access…';
   $('voice-btn').disabled = true;
@@ -619,6 +634,7 @@ async function voiceStart() {
       onClosed: (r) => {
         $('voice-state').textContent = `Voice ended (${r.replaceAll('_', ' ')}).`;
         $('voice-btn').disabled = false;
+        $('voice-card').classList.remove('voice-live');
         state.voice = null;
       },
     });
@@ -628,6 +644,7 @@ async function voiceStart() {
         ? 'Microphone access was blocked. You can still type your question.'
         : 'Voice could not start. You can still type your question.';
     $('voice-btn').disabled = false;
+    $('voice-card').classList.remove('voice-live');
   }
 }
 
@@ -711,8 +728,54 @@ $('voice-stop').addEventListener('click', () => state.voice?.stop());
 $('chal-form').addEventListener('submit', newChallenge);
 $('chal-log').addEventListener('click', () => void logAction());
 
+function askText(text) {
+  go('ask');
+  $('chat-input').value = text;
+  $('chat-form').requestSubmit();
+}
+for (const c of document.querySelectorAll('.chip[data-q]')) c.addEventListener('click', () => askText(c.dataset.q));
+$('explain-btn').addEventListener('click', () =>
+  askText('Explain this air-quality reading in simple words and tell me what I should do about it today.'),
+);
+$('talk-btn').addEventListener('click', () => {
+  go('ask');
+  if (!$('voice-btn').disabled) void voiceStart();
+});
+
+function resetHome() {
+  state.householdId = null;
+  state.aq = null;
+  store.set('ca_household', null);
+  document.body.dataset.sky = 'none';
+  syncButtons();
+}
+
+// Called on load, sign-in, sign-up and sign-out so the screen always matches who is signed in.
+async function onAccount(me, reason, before) {
+  if (reason === 'logout') {
+    resetHome();
+    show($('hero-actions'), false);
+    return;
+  }
+  if (me.kind !== 'registered') return;
+  const hh = me.household;
+  // Signing in to a different account replaces whatever was on screen; registering keeps it.
+  if (reason === 'login' && before?.kind !== 'registered') resetHome();
+  if (hh && (reason === 'login' || !state.householdId)) {
+    state.householdId = hh.id;
+    store.set('ca_household', hh.id);
+    $('lat').value = Number(hh.lat).toFixed(2);
+    $('lng').value = Number(hh.lng).toFixed(2);
+    state.loc = { lat: hh.lat, lng: hh.lng };
+    void checkAir();
+    void refreshIndoor();
+  }
+  syncButtons();
+}
+
 (async () => {
   await loadConfig();
+  await initNav({ onAccount });
   const id = store.get('ca_household');
   if (id) {
     try {

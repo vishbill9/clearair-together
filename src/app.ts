@@ -17,6 +17,7 @@ import type { AiProvider } from './ai/provider.js';
 import { AssistantService } from './ai/assistant.js';
 import { registerSecurity } from './security/plugin.js';
 import { registerApi } from './routes/api.js';
+import { registerAuth } from './routes/auth.js';
 import { registerIndoor } from './routes/indoor.js';
 import { registerLive, defaultUpstream, type UpstreamFactory } from './live/voice.js';
 import { GeminiVisionProvider, type VisionProvider } from './indoor/gemini-vision.js';
@@ -140,6 +141,7 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
         ? new GeminiVisionProvider({ apiKey: config.live.geminiApiKey, model: config.live.visionModel })
         : null;
   await registerApi(app, ctx);
+  await registerAuth(app, ctx);
   await registerIndoor(app, ctx, vision);
   await registerLive(
     app,
