@@ -13,12 +13,23 @@ export const plantChatInput = z
   .strict();
 export type PlantChatInput = z.infer<typeof plantChatInput>;
 
-export const plantChatOutput = z
-  .object({
-    answer: z.string().min(1).max(1400),
-    cautions: z.array(z.string().min(1).max(240)).max(4).default([]),
-  })
-  .strict();
+/** Gemini-side schema so the model returns exactly this shape. */
+export const PLANT_RESPONSE_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    answer: { type: 'STRING' },
+    cautions: { type: 'ARRAY', items: { type: 'STRING' } },
+  },
+  required: ['answer'],
+} as const;
+
+// Lenient on length and extra keys (models drift); strict that an answer string exists.
+const plantChatOutput = z.object({
+  answer: z.string().trim().min(1),
+  cautions: z.array(z.string()).optional(),
+});
+
+const clip = (t: string, n: number) => (t.length <= n ? t : `${t.slice(0, n - 1).trimEnd()}…`);
 
 export type PlantChatResult =
   | { kind: 'answer'; answer: string; cautions: string[]; blocked: false }
@@ -87,12 +98,18 @@ export async function answerPlantQuestion(
   const raw = await provider.generate({
     system: SYSTEM,
     user: `<household>${context || 'No details given.'}</household>\n<user_question>${input.question}</user_question>`,
-    maxTokens: 900,
+    maxTokens: 2048,
     timeoutMs,
   });
   const parsed = plantChatOutput.safeParse(extractJson(raw));
-  if (!parsed.success) throw new AiProviderError('bad_response');
-  const text = [parsed.data.answer, ...parsed.data.cautions].join(' ');
+  if (!parsed.success) throw new AiProviderError('bad_response', 'schema');
+  const answer = clip(parsed.data.answer, 1400);
+  const cautions = (parsed.data.cautions ?? [])
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .slice(0, 4)
+    .map((c) => clip(c, 240));
+  const text = [answer, ...cautions].join(' ');
   if (claimsAirCleaning(text) || checkFreeText(text, null).length > 0) return SAFE_FALLBACK;
-  return { kind: 'answer', answer: parsed.data.answer, cautions: parsed.data.cautions, blocked: false };
+  return { kind: 'answer', answer, cautions, blocked: false };
 }

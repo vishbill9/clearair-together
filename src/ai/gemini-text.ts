@@ -4,6 +4,8 @@ export interface GeminiTextOptions {
   apiKey: string;
   model: string;
   baseUrl?: string;
+  /** Gemini JSON schema (OpenAPI subset) that constrains the reply shape. */
+  responseSchema?: Record<string, unknown>;
   fetchImpl?: (url: string, init: RequestInit) => Promise<Response>;
 }
 
@@ -28,6 +30,7 @@ export class GeminiTextProvider implements AiProvider {
           generationConfig: {
             temperature: 0.4,
             responseMimeType: 'application/json',
+            ...(this.o.responseSchema ? { responseSchema: this.o.responseSchema } : {}),
             maxOutputTokens: req.maxTokens,
           },
         }),
@@ -42,18 +45,33 @@ export class GeminiTextProvider implements AiProvider {
     if (res.status === 401 || res.status === 403) throw new AiProviderError('auth');
     if (res.status === 429) throw new AiProviderError('rate_limited');
     if (res.status >= 500) throw new AiProviderError('server');
-    if (!res.ok) throw new AiProviderError('bad_response');
+    if (!res.ok) throw new AiProviderError('bad_response', `http:${res.status}`);
     try {
       const text = await res.text();
       if (text.length > 200_000) throw new Error('too large');
       const j = JSON.parse(text) as {
-        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        candidates?: Array<{
+          finishReason?: string;
+          content?: { parts?: Array<{ text?: string; thought?: boolean }> };
+        }>;
+        promptFeedback?: { blockReason?: string };
       };
-      const out = (j.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('');
-      if (!out.trim()) throw new Error('empty');
+      const c = j.candidates?.[0];
+      // Skip "thought" parts so reasoning text never ends up in the answer.
+      const out = (c?.content?.parts ?? [])
+        .filter((p) => !p.thought)
+        .map((p) => p.text ?? '')
+        .join('');
+      if (!out.trim()) {
+        throw new AiProviderError(
+          'bad_response',
+          `empty:${j.promptFeedback?.blockReason ?? c?.finishReason ?? 'none'}`,
+        );
+      }
+      if (c?.finishReason === 'MAX_TOKENS') throw new AiProviderError('bad_response', 'finish:MAX_TOKENS');
       return out;
-    } catch {
-      throw new AiProviderError('bad_response');
+    } catch (e) {
+      throw e instanceof AiProviderError ? e : new AiProviderError('bad_response', 'unparseable');
     }
   }
 }

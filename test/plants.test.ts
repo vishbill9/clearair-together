@@ -75,6 +75,22 @@ describe('plant chat', () => {
     assert.match(last!.system, /NEVER say or imply that a plant cleans/);
   });
 
+  it('tolerates extra keys, fenced JSON, long text and too many cautions by trimming', async () => {
+    reply =
+      '```json\n' +
+      JSON.stringify({
+        answer: 'a'.repeat(2000),
+        cautions: ['c'.repeat(500), '2', '3', '4', '5'],
+        extra: 1,
+      }) +
+      '\n```';
+    const d = json(await ask({ question: 'Tell me about ferns' })).data;
+    assert.equal(d.kind, 'answer');
+    assert.ok(d.answer.length <= 1400);
+    assert.equal(d.cautions.length, 4);
+    assert.ok(d.cautions[0].length <= 240);
+  });
+
   it('withholds an answer that claims plants clean the air', async () => {
     reply = '{"answer":"A snake plant purifies the air and removes formaldehyde.","cautions":[]}';
     const r = await ask({ question: 'Which plant cleans my air?' });
@@ -101,7 +117,7 @@ describe('plant chat', () => {
   it('maps provider and format failures to safe errors and validates input', async () => {
     reply = 'not json at all';
     assert.equal((await ask({ question: 'Hello plants?' })).statusCode, 502);
-    reply = '{"answer":"ok","cautions":[],"extra":1}';
+    reply = '{"cautions":["no answer field"]}';
     assert.equal((await ask({ question: 'Hello plants?' })).statusCode, 502);
     fail = new AiProviderError('timeout');
     assert.equal((await ask({ question: 'Hello plants?' })).statusCode, 503);
@@ -151,6 +167,36 @@ describe('Gemini text adapter', () => {
     assert.ok(!seen!.url.includes('k-secret'));
     assert.equal((seen!.init.headers as Record<string, string>)['x-goog-api-key'], 'k-secret');
     assert.match(seen!.url, /models\/m1:generateContent$/);
+  });
+  it('reports a truncated or empty reply with a safe reason and ignores thought parts', async () => {
+    const body = (parts: unknown, finishReason = 'STOP') =>
+      JSON.stringify({ candidates: [{ finishReason, content: { parts } }] });
+    await assert.rejects(
+      mk(() => new Response(body([{ text: '{"a":' }], 'MAX_TOKENS'))).generate(req),
+      (e: AiProviderError) => e.detail === 'finish:MAX_TOKENS',
+    );
+    await assert.rejects(
+      mk(() => new Response(body([{ text: 'thinking...', thought: true }]))).generate(req),
+      (e: AiProviderError) => e.kind === 'bad_response' && /^empty:/.test(e.detail ?? ''),
+    );
+    const ok = await mk(
+      () => new Response(body([{ text: 'hmm', thought: true }, { text: '{"x":1}' }])),
+    ).generate(req);
+    assert.equal(ok, '{"x":1}');
+  });
+  it('sends the response schema when configured', async () => {
+    let sent = '';
+    const p = new GeminiTextProvider({
+      apiKey: 'k',
+      model: 'm',
+      responseSchema: { type: 'OBJECT' },
+      fetchImpl: async (_u, i) => {
+        sent = String(i.body);
+        return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{}' }] } }] }));
+      },
+    });
+    await p.generate(req);
+    assert.equal(JSON.parse(sent).generationConfig.responseSchema.type, 'OBJECT');
   });
   it('maps errors', async () => {
     for (const [s, k] of [

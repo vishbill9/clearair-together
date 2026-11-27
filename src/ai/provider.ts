@@ -9,6 +9,8 @@ export interface AiRequest {
 export class AiProviderError extends Error {
   constructor(
     public readonly kind: 'timeout' | 'auth' | 'rate_limited' | 'server' | 'bad_response' | 'network',
+    /** Short, content-free reason (for example `finish:MAX_TOKENS`) that is safe to log. */
+    public readonly detail?: string,
   ) {
     super(`AI provider error: ${kind}`);
   }

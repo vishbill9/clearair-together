@@ -20,6 +20,7 @@ import { registerApi } from './routes/api.js';
 import { registerAuth } from './routes/auth.js';
 import { registerPlants } from './routes/plants.js';
 import { GeminiTextProvider } from './ai/gemini-text.js';
+import { PLANT_RESPONSE_SCHEMA } from './plants/chat.js';
 import { registerGoogleLogin, type OAuthFetch } from './routes/google-login.js';
 import { registerIndoor } from './routes/indoor.js';
 import { registerLive, defaultUpstream, type UpstreamFactory } from './live/voice.js';
@@ -149,7 +150,11 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     deps.plantProvider !== undefined
       ? deps.plantProvider
       : config.live.geminiApiKey && config.live.chatModel
-        ? new GeminiTextProvider({ apiKey: config.live.geminiApiKey, model: config.live.chatModel })
+        ? new GeminiTextProvider({
+            apiKey: config.live.geminiApiKey,
+            model: config.live.chatModel,
+            responseSchema: PLANT_RESPONSE_SCHEMA,
+          })
         : null;
   await registerApi(app, ctx);
   await registerPlants(app, ctx, plantProvider);

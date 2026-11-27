@@ -35,6 +35,7 @@ export async function registerPlants(
       return ok(req.id, result);
     } catch (e) {
       if (e instanceof AiProviderError) {
+        req.log.warn({ kind: e.kind, detail: e.detail }, 'plant chat provider failure');
         if (e.kind === 'bad_response') {
           throw new AppError(
             'ai_bad_output',
