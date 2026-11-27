@@ -167,11 +167,26 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .prov { display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 1rem; font-size: 0.92rem; margin: 0.4rem 0; }
 .prov dt { font-weight: 700; }
 .prov dd { margin: 0; }
-/* The air column: marker position and color come only from the provider's category. */
-.column { position: relative; height: 1.1rem; border-radius: 99px; margin: 0.6rem 0 0.4rem; background: linear-gradient(90deg, var(--good) 0 20%, var(--moderate) 20% 40%, var(--sensitive) 40% 60%, var(--unhealthy) 60% 80%, var(--very) 80% 100%); }
-.column.none { background: repeating-linear-gradient(135deg, var(--line) 0 8px, transparent 8px 16px); }
-.column #column-marker { position: absolute; top: -0.4rem; width: 0.4rem; height: 1.9rem; margin-left: -0.2rem; border-radius: 4px; background: var(--ink); box-shadow: 0 0 0 2px var(--card-solid); }
-.column.none #column-marker { display: none; }
+/* The gauge: needle angle and lit segment come only from the provider's category. */
+.gauge { width: min(100%, 22rem); margin: 0.4rem 0 0.2rem; height: auto; background: none; border-radius: 0; }
+.gauge svg { display: block; width: 100%; height: auto; overflow: visible; }
+.seg { fill: none; stroke-width: 24; stroke-linecap: butt; opacity: 0.35; transition: opacity 0.4s; }
+.seg-good { stroke: var(--good); }
+.seg-moderate { stroke: var(--moderate); }
+.seg-sensitive { stroke: var(--sensitive); }
+.seg-unhealthy { stroke: var(--unhealthy); }
+.seg-very { stroke: var(--very); }
+.gauge:not(.none) .seg { opacity: 0.55; }
+.gauge[data-active='good'] .seg-good, .gauge[data-active='moderate'] .seg-moderate, .gauge[data-active='sensitive'] .seg-sensitive, .gauge[data-active='unhealthy'] .seg-unhealthy, .gauge[data-active='very_unhealthy'] .seg-very { opacity: 1; }
+.gauge.none .seg { stroke: var(--line); opacity: 1; stroke-dasharray: 6 5; }
+.needle { transform-origin: 120px 120px; transform-box: view-box; transform: rotate(-90deg); transition: transform 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.15); }
+.needle-body { fill: var(--ink); }
+.hub { fill: var(--ink); stroke: var(--card-solid); stroke-width: 3; }
+.hub-dot { fill: var(--card-solid); }
+.gauge.none .needle { display: none; }
+.gauge.none .hub { display: none; }
+.gauge.none .hub-dot { display: none; }
+.end { fill: var(--ink-2); font: 600 11px var(--sans); }
 .tbl { width: 100%; border-collapse: collapse; margin: 0.4rem 0; }
 .tbl th, .tbl td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
 .tbl th { font-size: 0.88rem; color: var(--ink-2); }
@@ -236,4 +251,5 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
   .voice-live .orb { animation: none; }
   button { transition: none; }
+  .needle, .seg { transition: none; }
 }

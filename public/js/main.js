@@ -95,7 +95,8 @@ function renderStatus(d) {
   const s = d.snapshot;
   const col = $('column');
   col.classList.toggle('none', !s || d.severity === 'unknown');
-  $('column-marker').style.left = `${SEVERITY_POS[d.severity] ?? 50}%`;
+  col.dataset.active = s && d.severity !== 'unknown' ? d.severity : '';
+  $('column-marker').style.transform = `rotate(${(SEVERITY_POS[d.severity] ?? 50) * 1.8 - 90}deg)`;
   col.setAttribute(
     'aria-label',
     s ? `Air quality category: ${primary(s)?.category ?? 'unknown'}` : 'No air-quality reading available',
