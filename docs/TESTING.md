@@ -11,12 +11,12 @@
 
 ## Not verified against live services
 
-The sandbox this was built in had no Google, Anthropic or Gemini credentials and no route to those APIs. Their behaviour is
+The sandbox this was built in had no Google, Ollama, Anthropic or Gemini credentials and no route to those APIs. Their behaviour is
 tested with stubs that follow the documented request/response shapes. Before launch, with real keys, please check:
 
 1. **Google Air Quality**: request and response shapes (`currentConditions:lookup`, `forecast:lookup`), index codes and
    categories for your regions, and that `languageCode`/`extraComputations` are accepted for your key.
-2. **Anthropic**: the `AI_MODEL` id is valid for your account and the model reliably returns the JSON contract. Failures
+2. **Ollama Cloud / Anthropic**: the `OLLAMA_MODEL` tag (default `gemma4:31b`) or `AI_MODEL` id is valid for your account and the model reliably returns the JSON contract (Ollama cloud has no structured-output mode, so this depends on prompting). Failures
    surface as `ai_bad_output` and never as unvalidated text.
 3. **Gemini Live**: the proxy follows the public Live API WebSocket protocol (`setup`, `setupComplete`,
    `realtimeInput.audio` as 16 kHz PCM, 24 kHz audio out, input/output transcription). Key passing (`?key=`), audio MIME

@@ -21,7 +21,7 @@ npm run dev                 # http://localhost:3000
 ```
 
 With no keys the app still runs in development and shows explicit "not configured" states. In `NODE_ENV=production`
-it refuses to start unless `DATABASE_URL`, `GOOGLE_AIR_QUALITY_API_KEY`, `ANTHROPIC_API_KEY` and a 32+ character
+it refuses to start unless `DATABASE_URL`, `GOOGLE_AIR_QUALITY_API_KEY`, an assistant key (`OLLAMA_API_KEY`, or `ANTHROPIC_API_KEY`) and a 32+ character
 `SESSION_SECRET` are set.
 
 ## Scripts

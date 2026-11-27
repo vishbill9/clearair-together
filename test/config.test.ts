@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { ConfigError, loadConfig } from '../src/config.js';
 import { AnthropicProvider } from '../src/ai/anthropic.js';
+import { OllamaProvider } from '../src/ai/ollama.js';
 import { AiProviderError } from '../src/ai/provider.js';
 
 const prod = {
@@ -107,5 +108,96 @@ describe('Anthropic adapter', () => {
         ),
     });
     await assert.rejects(p.generate({ ...req, timeoutMs: 20 }), (e: AiProviderError) => e.kind === 'timeout');
+  });
+});
+
+describe('provider selection', () => {
+  const { ANTHROPIC_API_KEY: _drop, ...noAi } = prod;
+  it('prefers Ollama when its key is set and defaults to gemma4:31b', () => {
+    const c = load({ ...prod, OLLAMA_API_KEY: 'o' });
+    assert.equal(c.aiProvider, 'ollama');
+    assert.equal(c.ollama.model, 'gemma4:31b');
+    assert.equal(c.ollama.baseUrl, 'https://ollama.com');
+    assert.equal(c.integrations.assistant, true);
+  });
+  it('accepts Ollama alone in production and honours AI_PROVIDER', () => {
+    assert.equal(load({ ...noAi, OLLAMA_API_KEY: 'o' }).aiProvider, 'ollama');
+    assert.equal(load({ ...prod, OLLAMA_API_KEY: 'o', AI_PROVIDER: 'anthropic' }).aiProvider, 'anthropic');
+    assert.throws(() => load({ ...noAi, OLLAMA_API_KEY: 'o', AI_PROVIDER: 'anthropic' }), ConfigError);
+    assert.throws(() => load({ ...prod, AI_PROVIDER: 'ollama' }), ConfigError);
+    assert.throws(() => load(noAi), ConfigError);
+  });
+  it('falls back to Anthropic when only that key exists', () => {
+    assert.equal(load(prod).aiProvider, 'anthropic');
+  });
+});
+
+describe('Ollama adapter', () => {
+  const req = { system: 'sys', user: 'usr', maxTokens: 50, timeoutMs: 100 };
+  const mk = (resp: () => Response | Promise<Response>) =>
+    new OllamaProvider({ apiKey: 'ok-test', model: 'gemma4:31b', fetchImpl: async () => resp() });
+  it('posts to /api/chat with a Bearer header, non-streaming, and returns content', async () => {
+    let seen: { url: string; init: RequestInit } | undefined;
+    const p = new OllamaProvider({
+      apiKey: 'ok-test',
+      model: 'gemma4:31b',
+      fetchImpl: async (url, init) => {
+        seen = { url, init };
+        return new Response(JSON.stringify({ message: { role: 'assistant', content: '{"a":1}' } }));
+      },
+    });
+    assert.equal(await p.generate(req), '{"a":1}');
+    assert.equal(seen!.url, 'https://ollama.com/api/chat');
+    assert.equal((seen!.init.headers as Record<string, string>).authorization, 'Bearer ok-test');
+    const body = JSON.parse(String(seen!.init.body));
+    assert.equal(body.stream, false);
+    assert.equal(body.model, 'gemma4:31b');
+    assert.deepEqual(
+      body.messages.map((m: { role: string }) => m.role),
+      ['system', 'user'],
+    );
+    assert.equal(body.options.num_predict, 50);
+    assert.ok(!String(seen!.init.body).includes('ok-test'));
+  });
+  it('maps failures to typed errors', async () => {
+    for (const [status, kind] of [
+      [401, 'auth'],
+      [403, 'auth'],
+      [429, 'rate_limited'],
+      [502, 'server'],
+      [400, 'bad_response'],
+    ] as const) {
+      await assert.rejects(
+        mk(() => new Response('{}', { status })).generate(req),
+        (e: AiProviderError) => e.kind === kind,
+      );
+    }
+    for (const body of ['not json', '{}', JSON.stringify({ message: { content: '  ' } })]) {
+      await assert.rejects(
+        mk(() => new Response(body)).generate(req),
+        (e: AiProviderError) => e.kind === 'bad_response',
+      );
+    }
+  });
+  it('times out and reports network errors', async () => {
+    const slow = new OllamaProvider({
+      apiKey: 'k',
+      model: 'm',
+      fetchImpl: (_u, i) =>
+        new Promise((_r, rej) =>
+          i.signal?.addEventListener('abort', () =>
+            rej(Object.assign(new Error('x'), { name: 'AbortError' })),
+          ),
+        ),
+    });
+    await assert.rejects(slow.generate({ ...req, timeoutMs: 20 }), (e: AiProviderError) => e.kind === 'timeout');
+    const down = new OllamaProvider({
+      apiKey: 'k',
+      model: 'm',
+      fetchImpl: async () => {
+        throw new TypeError('fetch failed');
+      },
+    });
+    await assert.rejects(down.generate(req), (e: AiProviderError) => e.kind === 'network');
   });
 });

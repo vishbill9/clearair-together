@@ -8,10 +8,15 @@
 3. Put it in `GOOGLE_AIR_QUALITY_API_KEY`. It is sent only from the server (`POST https://airquality.googleapis.com/v1/...`).
    Billing must be enabled on the project; check current pricing and quotas in the Cloud Console.
 
-## 2. Anthropic
+## 2. Assistant model (Ollama Cloud, Gemma 4)
 
-Create a key in the Anthropic Console and set `ANTHROPIC_API_KEY`. `AI_MODEL` defaults to `claude-3-5-sonnet-latest` as
-specified; change it to any current model id your account can use.
+Create an API key in your Ollama account settings and set `OLLAMA_API_KEY`. The server calls `https://ollama.com/api/chat`
+with `Authorization: Bearer <key>`. `OLLAMA_MODEL` defaults to `gemma4:31b`; use any cloud model tag your account can run.
+Cloud models do not support structured outputs, so the JSON contract comes from the prompt and every reply is still
+validated with Zod and the safety policy before it is shown.
+
+Anthropic is still supported: set `ANTHROPIC_API_KEY` (and `AI_MODEL`). If both keys exist, Ollama is used unless
+`AI_PROVIDER=anthropic`.
 
 ## 3. Database (Supabase recommended; Neon works)
 
@@ -30,8 +35,8 @@ Names only; see `.env.example` for defaults. Secrets must be set in your host's 
 | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | `NODE_ENV`, `PORT`, `APP_ORIGIN`                                                                                                  | `APP_ORIGIN` must be `https://…` in production; it is also the CSRF/CORS origin                     |
 | `DATABASE_URL`, `SESSION_SECRET`                                                                                                  | Required in production; `SESSION_SECRET` 32+ chars (`openssl rand -base64 48`)                      |
-| `GOOGLE_AIR_QUALITY_API_KEY`, `ANTHROPIC_API_KEY`                                                                                 | Required in production                                                                              |
-| `AI_MODEL`, `AIR_QUALITY_CACHE_TTL_SECONDS` (900), `AIR_QUALITY_STALE_MAX_SECONDS`, `MAX_FORECAST_HOURS` (96)                     | Tuning                                                                                              |
+| `GOOGLE_AIR_QUALITY_API_KEY`, `OLLAMA_API_KEY` (or `ANTHROPIC_API_KEY`)                                                           | Required in production (one assistant key is enough)                                                |
+| `OLLAMA_MODEL` (gemma4:31b), `OLLAMA_BASE_URL`, `AI_PROVIDER`, `AI_MODEL` (Anthropic only), `AIR_QUALITY_CACHE_TTL_SECONDS` (900), `AIR_QUALITY_STALE_MAX_SECONDS`, `MAX_FORECAST_HOURS` (96)                     | Tuning                                                                                              |
 | `CORS_ALLOWED_ORIGINS`, `FRAME_ANCESTORS`                                                                                         | Comma separated. `FRAME_ANCESTORS` lists hosts allowed to embed a preview; default is `'self'` only |
 | `TRUST_PROXY`                                                                                                                     | Set `true` behind a reverse proxy so rate limits use the real client IP                             |
 | `LIVE_AI_ENABLED`, `GOOGLE_GEMINI_API_KEY`, `GOOGLE_GEMINI_LIVE_MODEL`, `GOOGLE_GEMINI_VISION_MODEL`                              | Optional multimodal module                                                                          |

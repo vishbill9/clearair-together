@@ -12,6 +12,7 @@ import { createLogger } from './logger.js';
 import { GoogleAirQualityClient, type FetchLike } from './google/client.js';
 import { AirQualityService } from './google/service.js';
 import { AnthropicProvider } from './ai/anthropic.js';
+import { OllamaProvider } from './ai/ollama.js';
 import type { AiProvider } from './ai/provider.js';
 import { AssistantService } from './ai/assistant.js';
 import { registerSecurity } from './security/plugin.js';
@@ -64,9 +65,15 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
   const provider: AiProvider | null =
     deps.aiProvider !== undefined
       ? deps.aiProvider
-      : config.anthropicApiKey
-        ? new AnthropicProvider({ apiKey: config.anthropicApiKey, model: config.aiModel })
-        : null;
+      : config.aiProvider === 'ollama' && config.ollama.apiKey
+        ? new OllamaProvider({
+            apiKey: config.ollama.apiKey,
+            model: config.ollama.model,
+            baseUrl: config.ollama.baseUrl,
+          })
+        : config.aiProvider === 'anthropic' && config.anthropicApiKey
+          ? new AnthropicProvider({ apiKey: config.anthropicApiKey, model: config.aiModel })
+          : null;
   const assistant = new AssistantService(provider, { now });
   const ctx: AppContext = { config, dbh: deps.dbh, aq, assistant, now };
 

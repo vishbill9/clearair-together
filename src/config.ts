@@ -25,6 +25,10 @@ const envSchema = z.object({
   GOOGLE_AIR_QUALITY_API_KEY: optionalString,
   GOOGLE_AIR_QUALITY_BASE_URL: z.string().url().default('https://airquality.googleapis.com'),
   ANTHROPIC_API_KEY: optionalString,
+  OLLAMA_API_KEY: optionalString,
+  OLLAMA_MODEL: z.string().min(1).default('gemma4:31b'),
+  OLLAMA_BASE_URL: z.string().url().default('https://ollama.com'),
+  AI_PROVIDER: z.enum(['ollama', 'anthropic']).optional(),
   SESSION_SECRET: optionalString,
   AI_MODEL: z.string().min(1).default('claude-3-5-sonnet-latest'),
   AIR_QUALITY_CACHE_TTL_SECONDS: intInRange(900, 0, 86_400),
@@ -55,6 +59,9 @@ export interface Config {
   databaseUrl?: string;
   google: { apiKey?: string; baseUrl: string };
   anthropicApiKey?: string;
+  ollama: { apiKey?: string; model: string; baseUrl: string };
+  /** Which assistant provider is active; null when no key is configured. */
+  aiProvider: 'ollama' | 'anthropic' | null;
   sessionSecret: string;
   aiModel: string;
   airQuality: { cacheTtlSeconds: number; staleMaxSeconds: number; maxForecastHours: number };
@@ -103,12 +110,20 @@ export function loadConfig(
   }
   const e = parsed.data;
   const isProduction = e.NODE_ENV === 'production';
+  const aiProvider: 'ollama' | 'anthropic' | null =
+    e.AI_PROVIDER === 'anthropic'
+      ? e.ANTHROPIC_API_KEY ? 'anthropic' : null
+      : e.AI_PROVIDER === 'ollama'
+        ? e.OLLAMA_API_KEY ? 'ollama' : null
+        : e.OLLAMA_API_KEY ? 'ollama' : e.ANTHROPIC_API_KEY ? 'anthropic' : null;
 
   if (isProduction) {
     const missing: string[] = [];
     if (!e.DATABASE_URL) missing.push('DATABASE_URL');
     if (!e.GOOGLE_AIR_QUALITY_API_KEY) missing.push('GOOGLE_AIR_QUALITY_API_KEY');
-    if (!e.ANTHROPIC_API_KEY) missing.push('ANTHROPIC_API_KEY');
+    if (!e.ANTHROPIC_API_KEY && !e.OLLAMA_API_KEY) missing.push('OLLAMA_API_KEY (or ANTHROPIC_API_KEY)');
+    if (e.AI_PROVIDER === 'ollama' && !e.OLLAMA_API_KEY) missing.push('OLLAMA_API_KEY');
+    if (e.AI_PROVIDER === 'anthropic' && !e.ANTHROPIC_API_KEY) missing.push('ANTHROPIC_API_KEY');
     if (!e.SESSION_SECRET) missing.push('SESSION_SECRET');
     if (e.LIVE_AI_ENABLED) {
       if (!e.GOOGLE_GEMINI_API_KEY) missing.push('GOOGLE_GEMINI_API_KEY');
@@ -157,6 +172,12 @@ export function loadConfig(
       baseUrl: e.GOOGLE_AIR_QUALITY_BASE_URL.replace(/\/$/, ''),
     },
     anthropicApiKey: e.ANTHROPIC_API_KEY,
+    ollama: {
+      apiKey: e.OLLAMA_API_KEY,
+      model: e.OLLAMA_MODEL,
+      baseUrl: e.OLLAMA_BASE_URL.replace(/\/$/, ''),
+    },
+    aiProvider: aiProvider,
     sessionSecret,
     aiModel: e.AI_MODEL,
     airQuality: {
@@ -186,7 +207,7 @@ export function loadConfig(
     integrations: {
       database: Boolean(e.DATABASE_URL),
       googleAirQuality: Boolean(e.GOOGLE_AIR_QUALITY_API_KEY),
-      assistant: Boolean(e.ANTHROPIC_API_KEY),
+      assistant: aiProvider !== null,
       live: e.LIVE_AI_ENABLED && Boolean(e.GOOGLE_GEMINI_API_KEY && e.GOOGLE_GEMINI_LIVE_MODEL),
       vision: Boolean(e.GOOGLE_GEMINI_API_KEY && e.GOOGLE_GEMINI_VISION_MODEL),
     },

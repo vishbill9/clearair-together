@@ -20,5 +20,5 @@ services:
       - { key: SESSION_SECRET, generateValue: true }
       - { key: APP_ORIGIN, sync: false }
       - { key: GOOGLE_AIR_QUALITY_API_KEY, sync: false }
-      - { key: ANTHROPIC_API_KEY, sync: false }
-      - { key: AI_MODEL, value: claude-3-5-sonnet-latest }
+      - { key: OLLAMA_API_KEY, sync: false }
+      - { key: OLLAMA_MODEL, value: gemma4:31b }
