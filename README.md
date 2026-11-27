@@ -49,7 +49,6 @@ it refuses to start unless `DATABASE_URL`, `GOOGLE_AIR_QUALITY_API_KEY`, an assi
 | `POST /scenarios/compare`                                                                  | Routine comparison with separate exposure and emissions                        |
 | `POST /recommendations/:id/feedback`                                                       | helpful / not_helpful / done / not_feasible                                    |
 | `POST /community/challenges`, `POST …/:id/join`, `POST …/:id/actions`, `GET …/:id/summary` | Aggregate-only, k-anonymous (k=5)                                              |
-| `POST /indoor/sensor-reading`, `GET /indoor/status`                                        | Only sensor data can produce a measured indoor status                          |
 | `WS /live/voice`, `POST /live/voice/stop`                                                  | Optional live voice via a Gemini Live proxy                                    |
 
 ## How the data rules are enforced

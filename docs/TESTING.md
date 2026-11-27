@@ -4,7 +4,7 @@
 
 - `npm test`: 130 `node:test` tests across Google request building/normalization/pagination/failure modes, freshness states,
   AI schema and safety policy, authorization isolation, security headers/CORS/CSRF/rate limits/redaction, emissions vs
-  exposure logic, migrations and constraints on **real PostgreSQL**, sensor validation,
+  exposure logic, migrations and constraints on **real PostgreSQL**,
   live-voice proxy (against a local fake Gemini WebSocket server).
 - `npm run test:browser`: 11 Playwright tests × desktop and mobile: location, real-data status, provenance, unavailable state,
   assistant, feedback, community suppression, keys-not-in-browser, axe (WCAG 2 A/AA), keyboard, 360px width.

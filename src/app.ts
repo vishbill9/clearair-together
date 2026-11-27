@@ -23,7 +23,6 @@ import { FallbackProvider } from './ai/fallback.js';
 import { GeminiTextProvider } from './ai/gemini-text.js';
 import { PLANT_RESPONSE_SCHEMA } from './plants/chat.js';
 import { registerGoogleLogin, type OAuthFetch } from './routes/google-login.js';
-import { registerIndoor } from './routes/indoor.js';
 import { registerLive, defaultUpstream, type UpstreamFactory } from './live/voice.js';
 import type { AppContext } from './context.js';
 
@@ -158,7 +157,6 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
   await registerPlants(app, ctx, plantProvider);
   await registerAuth(app, ctx);
   await registerGoogleLogin(app, ctx, deps.oauthFetch);
-  await registerIndoor(app, ctx);
   await registerLive(
     app,
     ctx,

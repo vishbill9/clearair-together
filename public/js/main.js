@@ -238,7 +238,6 @@ async function saveHousehold(ev) {
     store.set('ca_household', d.id);
     msg.textContent = 'Household saved.';
     syncButtons();
-    void refreshIndoor();
   } catch (e) {
     msg.textContent = errText(e);
   } finally {
@@ -384,29 +383,6 @@ async function compare() {
     );
   } catch (e) {
     setMsg(msg, errText(e));
-  }
-}
-
-// ---- Indoor -----------------------------------------------------------------------------------
-async function refreshIndoor() {
-  if (!state.householdId) return;
-  try {
-    const d = await api('GET', `/api/v1/indoor/status?householdId=${state.householdId}`);
-    const box = $('indoor-status');
-    clear(box);
-    box.classList.toggle('empty', d.status !== 'measured');
-    box.append(h('p', {}, d.message));
-    d.readings.forEach((r) =>
-      box.append(
-        h(
-          'p',
-          {},
-          `${r.pollutant.toUpperCase()}: ${r.value} ${r.unit === 'ug/m3' ? 'µg/m³' : r.unit} at ${fmt(r.measuredAt)}${r.reference ? `. ${r.reference.relation === 'above' ? 'Above' : 'At or below'} the ${r.reference.guideline}.` : ''}`,
-        ),
-      ),
-    );
-  } catch {
-    /* leave default text */
   }
 }
 
@@ -685,7 +661,6 @@ async function onAccount(me, reason, before) {
     $('lng').value = Number(hh.lng).toFixed(2);
     state.loc = { lat: hh.lat, lng: hh.lng };
     void checkAir();
-    void refreshIndoor();
   }
   syncButtons();
 }
@@ -699,7 +674,6 @@ async function onAccount(me, reason, before) {
     try {
       await api('GET', `/api/v1/households/${id}`);
       state.householdId = id;
-      void refreshIndoor();
     } catch {
       store.set('ca_household', null);
     }

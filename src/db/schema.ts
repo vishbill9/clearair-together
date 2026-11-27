@@ -250,29 +250,6 @@ export const auditEvents = pgTable(
   ],
 );
 
-/** Readings pushed by the user or a supported device. Only these rows can produce a measured indoor status. */
-export const indoorSensorReadings = pgTable(
-  'indoor_sensor_readings',
-  {
-    id: id(),
-    householdId: uuid('household_id')
-      .notNull()
-      .references(() => households.id, { onDelete: 'cascade' }),
-    deviceId: text('device_id').notNull(),
-    deviceLabel: text('device_label'),
-    pollutant: text('pollutant').notNull(),
-    unit: text('unit').notNull(),
-    value: doublePrecision('value').notNull(),
-    measuredAt: timestamp('measured_at', { withTimezone: true }).notNull(),
-    calibratedAt: timestamp('calibrated_at', { withTimezone: true }),
-    receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    index('indoor_readings_lookup_idx').on(t.householdId, t.pollutant, t.measuredAt),
-    check('indoor_readings_value_check', sql`${t.value} >= 0`),
-  ],
-);
-
 export const TABLES = [
   'users',
   'households',
@@ -284,5 +261,4 @@ export const TABLES = [
   'community_challenges',
   'community_participation',
   'audit_events',
-  'indoor_sensor_readings',
 ] as const;

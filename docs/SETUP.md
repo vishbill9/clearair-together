@@ -64,4 +64,4 @@ Set `GOOGLE_GEMINI_API_KEY` (create it in Google AI Studio), `LIVE_AI_ENABLED=tr
 
 ## Plant guide and Gemini chat
 
-The Plants page lists nine easy-care houseplants with original illustrations, filtered by room light and pets. The chat uses Gemini text (`GOOGLE_GEMINI_API_KEY` plus `GOOGLE_GEMINI_CHAT_MODEL`, Render default `gemini-3.5-flash-lite`). Replies are schema-validated and blocked if they claim plants clean air, quote an AQI number or include a link. A pet or child eating a plant gets fixed urgent guidance (vet or poison control) without calling the model. The sensor readings check lives under "Advanced" on the same page.
+The Plants page lists nine easy-care houseplants with original illustrations, filtered by room light and pets. The chat uses Gemini text (`GOOGLE_GEMINI_API_KEY` plus `GOOGLE_GEMINI_CHAT_MODEL`, Render default `gemini-3.5-flash-lite`). Replies are schema-validated and blocked if they claim plants clean air, quote an AQI number or include a link. A pet or child eating a plant gets fixed urgent guidance (vet or poison control) without calling the model.
