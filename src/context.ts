@@ -7,13 +7,7 @@ import { users, auditEvents } from './db/schema.js';
 import { AppError, notConfigured, unauthorized } from './errors.js';
 import type { AirQualityService } from './google/service.js';
 import type { AssistantService } from './ai/assistant.js';
-import {
-  CSRF_COOKIE,
-  SESSION_COOKIE,
-  SESSION_MAX_AGE_SECONDS,
-  signSession,
-  verifySession,
-} from './security/session.js';
+import { SESSION_COOKIE, SESSION_MAX_AGE_SECONDS, signSession, verifySession } from './security/session.js';
 
 export interface AppContext {
   config: Config;
@@ -69,7 +63,7 @@ export async function ensureUser(ctx: AppContext, req: FastifyRequest, reply: Fa
   return row.id;
 }
 
-export function clientHash(ctx: AppContext, ip: string): string {
+function clientHash(ctx: AppContext, ip: string): string {
   return createHash('sha256').update(`${ctx.config.sessionSecret}:${ip}`).digest('hex').slice(0, 16);
 }
 
@@ -99,5 +93,3 @@ export async function audit(
     req.log.warn({ err: (err as Error).message }, 'audit write failed');
   }
 }
-
-export { CSRF_COOKIE };

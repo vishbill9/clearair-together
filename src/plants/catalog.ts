@@ -1,5 +1,5 @@
-export type Light = 'low' | 'medium' | 'bright';
-export type Care = 'very_easy' | 'easy' | 'moderate';
+type Light = 'low' | 'medium' | 'bright';
+type Care = 'very_easy' | 'easy' | 'moderate';
 
 export interface Plant {
   id: string;

@@ -13,7 +13,6 @@ import {
   households,
   recommendations,
 } from '../db/schema.js';
-import { UpstreamError } from '../google/client.js';
 import { currentQuerySchema, forecastQuerySchema, locationKey, roundCoordinate } from '../google/request.js';
 import { buildDailyPlan, type PlanHousehold } from '../domain/plan.js';
 import { compareRoutines, type CommuteMode } from '../domain/impact.js';
@@ -523,5 +522,3 @@ function publicHousehold(h: NonNullable<Awaited<ReturnType<typeof getOwnedHouseh
     createdAt: h.household.createdAt.toISOString(),
   };
 }
-
-export { UpstreamError };

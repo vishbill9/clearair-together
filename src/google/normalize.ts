@@ -38,7 +38,7 @@ const hourSchema = z
   })
   .passthrough();
 
-export const currentResponseSchema = hourSchema;
+const currentResponseSchema = hourSchema;
 
 export const forecastResponseSchema = z
   .object({
@@ -54,7 +54,7 @@ const UNIT_LABELS: Record<string, string> = {
   PARTS_PER_MILLION: 'ppm',
 };
 
-export function toUtcIso(value: string): string {
+function toUtcIso(value: string): string {
   const ms = Date.parse(value);
   if (Number.isNaN(ms))
     throw new MalformedResponseError(`Unparseable timestamp from upstream: ${value.slice(0, 40)}`);

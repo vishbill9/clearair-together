@@ -1,4 +1,3 @@
-import { AppError } from '../errors.js';
 import type { Config } from '../config.js';
 import {
   buildCurrentRequest,
@@ -11,7 +10,6 @@ import {
   forecastResponseSchema,
   normalizeCurrent,
   normalizeForecastHour,
-  toUtcIso,
 } from './normalize.js';
 import type { AirQualityForecast, AirQualitySnapshot, ForecastHour } from './types.js';
 
@@ -207,42 +205,3 @@ export class GoogleAirQualityClient {
     return out;
   }
 }
-
-/** Maps an upstream failure to a safe public error. Never includes upstream bodies or the key. */
-export function toPublicError(e: UpstreamError): AppError {
-  switch (e.kind) {
-    case 'auth':
-      return new AppError(
-        'upstream_auth_failed',
-        503,
-        'The air-quality provider rejected our credentials. The operator has been notified.',
-      );
-    case 'rate_limited':
-      return new AppError(
-        'upstream_rate_limited',
-        503,
-        'The air-quality provider is rate limiting requests. Please try again shortly.',
-      );
-    case 'malformed':
-    case 'too_large':
-      return new AppError(
-        'upstream_bad_response',
-        502,
-        'The air-quality provider returned an unusable response.',
-      );
-    case 'bad_request':
-      return new AppError(
-        'upstream_bad_response',
-        502,
-        'The air-quality provider could not serve this location.',
-      );
-    default:
-      return new AppError(
-        'upstream_unavailable',
-        503,
-        'The air-quality provider is temporarily unavailable.',
-      );
-  }
-}
-
-export { toUtcIso };

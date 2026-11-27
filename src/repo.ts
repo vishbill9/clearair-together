@@ -11,8 +11,6 @@ import {
 } from './db/schema.js';
 import type { PlanItem } from './domain/plan.js';
 
-export type HouseholdRow = typeof households.$inferSelect;
-
 /** Every household query is scoped by owner in SQL, so another user's id is indistinguishable from a missing one. */
 export async function getOwnedHousehold(db: Db, userId: string, householdId: string) {
   const [h] = await db
@@ -87,7 +85,7 @@ export async function recordFeedback(
     });
 }
 
-export const K_ANONYMITY = 5;
+const K_ANONYMITY = 5;
 
 /** Aggregates only. Counts below k are suppressed so no individual's participation or actions can be inferred. */
 export async function challengeSummary(db: Db, challengeId: string) {

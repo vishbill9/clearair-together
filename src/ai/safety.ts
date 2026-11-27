@@ -104,7 +104,7 @@ function allText(o: AssistantOutput): string {
   ].join('\n');
 }
 
-export function allowedAqiValues(s: AirQualitySnapshot | null): Set<number> {
+function allowedAqiValues(s: AirQualitySnapshot | null): Set<number> {
   const set = new Set<number>();
   for (const i of s?.indexes ?? []) {
     set.add(i.aqi);

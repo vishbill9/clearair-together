@@ -14,7 +14,7 @@ import { CSRF_COOKIE, csrfCheck, SESSION_COOKIE, verifySession } from '../securi
 import type { AirQualityResult } from '../google/service.js';
 import { parse } from '../routes/validate.js';
 
-export const GEMINI_LIVE_URL =
+const GEMINI_LIVE_URL =
   'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
 const MAX_CLIENT_MSG_BYTES = 48 * 1024;
 const MAX_CLIENT_MSGS_PER_SEC = 60;

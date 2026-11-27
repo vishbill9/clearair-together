@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** Extra computations we allow ourselves to ask Google for. Nothing else is ever sent upstream. */
-export const ALLOWED_EXTRA_COMPUTATIONS = [
+const ALLOWED_EXTRA_COMPUTATIONS = [
   'HEALTH_RECOMMENDATIONS',
   'DOMINANT_POLLUTANT_CONCENTRATION',
   'POLLUTANT_CONCENTRATION',
@@ -9,17 +9,17 @@ export const ALLOWED_EXTRA_COMPUTATIONS = [
   'POLLUTANT_ADDITIONAL_INFO',
 ] as const;
 
-export const FORECAST_HORIZON_HOURS = 96;
-export const COORDINATE_DECIMALS = 2;
+const FORECAST_HORIZON_HOURS = 96;
+const COORDINATE_DECIMALS = 2;
 
-export const languageCodeSchema = z
+const languageCodeSchema = z
   .string()
   .regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8}){0,2}$/, 'languageCode must be a BCP-47 tag such as "en" or "hi-IN"');
 
-export const latitudeSchema = z.coerce.number().refine((n) => Number.isFinite(n) && n >= -90 && n <= 90, {
+const latitudeSchema = z.coerce.number().refine((n) => Number.isFinite(n) && n >= -90 && n <= 90, {
   message: 'latitude must be between -90 and 90',
 });
-export const longitudeSchema = z.coerce.number().refine((n) => Number.isFinite(n) && n >= -180 && n <= 180, {
+const longitudeSchema = z.coerce.number().refine((n) => Number.isFinite(n) && n >= -180 && n <= 180, {
   message: 'longitude must be between -180 and 180',
 });
 
@@ -94,9 +94,6 @@ export function forecastQuerySchema(maxHours: number, now: () => Date = () => ne
       }
     });
 }
-
-export type CurrentQuery = z.infer<typeof currentQuerySchema>;
-export type ForecastQuery = z.infer<ReturnType<typeof forecastQuerySchema>>;
 
 export interface CurrentConditionsRequest {
   location: { latitude: number; longitude: number };

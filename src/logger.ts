@@ -1,7 +1,7 @@
 import { pino, type Logger, type LoggerOptions } from 'pino';
 
 /** Paths whose values must never reach logs. Wildcards cover nested request/response objects. */
-export const REDACT_PATHS = [
+const REDACT_PATHS = [
   'req.headers.authorization',
   'req.headers.cookie',
   'req.headers["x-csrf-token"]',
@@ -46,7 +46,7 @@ export const REDACT_PATHS = [
   'data',
 ];
 
-export function loggerOptions(level: string): LoggerOptions {
+function loggerOptions(level: string): LoggerOptions {
   return {
     level,
     redact: { paths: REDACT_PATHS, censor: '[Redacted]' },

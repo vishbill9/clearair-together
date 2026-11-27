@@ -59,6 +59,3 @@ export const APPROVED_GUIDANCE: readonly GuidanceItem[] = [
 ];
 
 export const APPROVED_SOURCE_IDS = new Set(APPROVED_GUIDANCE.map((g) => g.id));
-export const APPROVED_URLS = new Set(APPROVED_GUIDANCE.flatMap((g) => (g.url ? [g.url] : [])));
-
-export const sourceInfo = (id: string) => APPROVED_GUIDANCE.find((g) => g.id === id);

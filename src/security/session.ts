@@ -39,7 +39,7 @@ export function newCsrfToken(secret: string): string {
   return `${nonce}.${mac(secret, 'csrf', nonce)}`;
 }
 
-export function csrfTokenValid(secret: string, token: string | undefined): boolean {
+function csrfTokenValid(secret: string, token: string | undefined): boolean {
   if (!token || token.length > 120) return false;
   const [nonce, sig, extra] = token.split('.');
   if (!nonce || !sig || extra !== undefined) return false;

@@ -6,7 +6,7 @@ data is missing, stale or the provider is down, the app says so and shows no num
 
 - **Exposure and emissions are separate.** Every recommendation and routine comparison shows what you breathe and what your choice puts in the air as independent columns, because they often disagree.
 - **Honest states.** `fresh`, `cached`, `stale`, `unavailable`, `not_configured`. Each one is visible in the UI and the API.
-- **Safety-checked AI.** The Claude assistant gets structured, verified context. Its JSON output is schema-validated and then passed through a deterministic safety policy before anyone sees it.
+- **Safety-checked AI.** The assistant (Ollama Cloud Gemma, or Anthropic Claude) gets structured, verified context. Its JSON output is schema-validated and then passed through a deterministic safety policy before anyone sees it.
 - **Private by default.** Rounded coordinates, age groups instead of identities, k-anonymous community totals, no stored audio.
 
 ## Quick start
@@ -38,18 +38,22 @@ it refuses to start unless `DATABASE_URL`, `GOOGLE_AIR_QUALITY_API_KEY`, an assi
 
 ## API (all under `/api/v1`, envelope `{requestId, schemaVersion, data | error}`)
 
-| Route                                                                                      | Purpose                                                                        |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| `GET /health`                                                                              | Liveness, database state, integration flags (no secrets)                       |
-| `GET /air-quality?lat&lng`                                                                 | Current snapshot plus `status`, provenance and timestamps                      |
-| `GET /air-quality/forecast?lat&lng&start&end`                                              | Hourly forecast (paginated upstream, deduped, UTC)                             |
-| `POST /households`, `GET /households/:id`, `PUT /households/:id/constraints`               | Household profile (owner only)                                                 |
-| `POST /households/:id/daily-plan`                                                          | Rules-based plan with indoor quick wins and routines                           |
-| `POST /assistant/messages`                                                                 | Claude assistant (validated, safety-checked); urgent symptoms bypass the model |
-| `POST /scenarios/compare`                                                                  | Routine comparison with separate exposure and emissions                        |
-| `POST /recommendations/:id/feedback`                                                       | helpful / not_helpful / done / not_feasible                                    |
-| `POST /community/challenges`, `POST …/:id/join`, `POST …/:id/actions`, `GET …/:id/summary` | Aggregate-only, k-anonymous (k=5)                                              |
-| `WS /live/voice`, `POST /live/voice/stop`                                                  | Optional live voice via a Gemini Live proxy                                    |
+| Route                                                                                      | Purpose                                                                    |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `GET /health` (outside `/api/v1`)                                                          | Liveness, database state, integration flags (no secrets)                   |
+| `GET /air-quality?lat&lng`                                                                 | Current snapshot plus `status`, provenance and timestamps                  |
+| `GET /air-quality/forecast?lat&lng&start&end`                                              | Hourly forecast (paginated upstream, deduped, UTC)                         |
+| `POST /households`, `GET /households/:id`, `PUT /households/:id/constraints`               | Household profile (owner only)                                             |
+| `POST /households/:id/daily-plan`                                                          | Rules-based plan with indoor quick wins and routines                       |
+| `POST /assistant/messages`                                                                 | AI assistant (validated, safety-checked); urgent symptoms bypass the model |
+| `POST /scenarios/compare`                                                                  | Routine comparison with separate exposure and emissions                    |
+| `POST /recommendations/:id/feedback`                                                       | helpful / not_helpful / done / not_feasible                                |
+| `POST /community/challenges`, `POST …/:id/join`, `POST …/:id/actions`, `GET …/:id/summary` | Aggregate-only, k-anonymous (k=5)                                          |
+| `WS /live/voice`, `POST /live/voice/stop`                                                  | Optional live voice via a Gemini Live proxy                                |
+| `GET /plants`, `POST /plants/chat`                                                         | Houseplant list; Gemini plant chat (falls back to the assistant model)     |
+| `POST /auth/register`, `/auth/login`, `/auth/logout`, `GET /auth/me`                       | Email and password accounts                                                |
+| `GET /auth/google/start`, `GET /auth/google/callback`                                      | Sign in with Google (authorization code flow with PKCE)                    |
+| `GET /config`, `GET /session`                                                              | Public feature flags; session and CSRF token                               |
 
 ## How the data rules are enforced
 

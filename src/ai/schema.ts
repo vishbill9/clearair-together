@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-export const effectSchema = z.enum(['lower', 'similar', 'higher', 'unknown']);
-export const effortSchema = z.enum(['low', 'medium', 'high']);
+const effectSchema = z.enum(['lower', 'similar', 'higher', 'unknown']);
+const effortSchema = z.enum(['low', 'medium', 'high']);
 
 export const assistantOutputSchema = z
   .object({

@@ -1,6 +1,6 @@
 import type { ErrorCode } from './errors.js';
 
-export const SCHEMA_VERSION = '2026-11-01';
+const SCHEMA_VERSION = '2026-11-01';
 
 export interface SafeError {
   code: ErrorCode;
