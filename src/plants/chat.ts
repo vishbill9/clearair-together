@@ -87,6 +87,8 @@ export async function answerPlantQuestion(
   provider: AiProvider,
   input: PlantChatInput,
   timeoutMs = 35_000,
+  /** Receives content-free rule names when a generated answer is replaced by the safe reply. */
+  onBlocked: (rules: string[]) => void = () => undefined,
 ): Promise<PlantChatResult> {
   if (isIngestionConcern(input.question)) return URGENT;
   const context = [
@@ -110,6 +112,13 @@ export async function answerPlantQuestion(
     .slice(0, 4)
     .map((c) => clip(c, 240));
   const text = [answer, ...cautions].join(' ');
-  if (claimsAirCleaning(text) || checkFreeText(text, null).length > 0) return SAFE_FALLBACK;
+  const rules = [
+    ...(claimsAirCleaning(text) ? ['air_cleaning_claim'] : []),
+    ...checkFreeText(text, null).map((v) => v.rule),
+  ];
+  if (rules.length > 0) {
+    onBlocked([...new Set(rules)]);
+    return SAFE_FALLBACK;
+  }
   return { kind: 'answer', answer, cautions, blocked: false };
 }

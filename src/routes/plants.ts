@@ -30,7 +30,9 @@ export async function registerPlants(
     }
     if (!provider || !ctx.config.integrations.plantChat) throw notConfigured('Plant chat');
     try {
-      const result = await answerPlantQuestion(provider, body);
+      const result = await answerPlantQuestion(provider, body, undefined, (rules) =>
+        req.log.warn({ rules }, 'plant chat answer blocked'),
+      );
       await audit(ctx, req, { type: result.blocked ? 'plants.blocked' : 'plants.answer' });
       return ok(req.id, result);
     } catch (e) {
