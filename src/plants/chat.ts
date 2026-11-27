@@ -86,7 +86,7 @@ const SAFE_FALLBACK: PlantChatResult = {
 export async function answerPlantQuestion(
   provider: AiProvider,
   input: PlantChatInput,
-  timeoutMs = 20_000,
+  timeoutMs = 35_000,
 ): Promise<PlantChatResult> {
   if (isIngestionConcern(input.question)) return URGENT;
   const context = [

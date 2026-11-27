@@ -13,12 +13,13 @@ import { GoogleAirQualityClient, type FetchLike } from './google/client.js';
 import { AirQualityService } from './google/service.js';
 import { AnthropicProvider } from './ai/anthropic.js';
 import { OllamaProvider } from './ai/ollama.js';
-import type { AiProvider } from './ai/provider.js';
+import type { AiProvider, AiProviderError } from './ai/provider.js';
 import { AssistantService } from './ai/assistant.js';
 import { registerSecurity } from './security/plugin.js';
 import { registerApi } from './routes/api.js';
 import { registerAuth } from './routes/auth.js';
 import { registerPlants } from './routes/plants.js';
+import { FallbackProvider } from './ai/fallback.js';
 import { GeminiTextProvider } from './ai/gemini-text.js';
 import { PLANT_RESPONSE_SCHEMA } from './plants/chat.js';
 import { registerGoogleLogin, type OAuthFetch } from './routes/google-login.js';
@@ -142,11 +143,16 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     deps.plantProvider !== undefined
       ? deps.plantProvider
       : config.live.geminiApiKey && config.live.chatModel
-        ? new GeminiTextProvider({
-            apiKey: config.live.geminiApiKey,
-            model: config.live.chatModel,
-            responseSchema: PLANT_RESPONSE_SCHEMA,
-          })
+        ? withAssistantFallback(
+            new GeminiTextProvider({
+              apiKey: config.live.geminiApiKey,
+              model: config.live.chatModel,
+              responseSchema: PLANT_RESPONSE_SCHEMA,
+            }),
+            provider,
+            (e) =>
+              app.log.warn({ kind: e.kind, detail: e.detail }, 'plant chat falling back to assistant model'),
+          )
         : null;
   await registerApi(app, ctx);
   await registerPlants(app, ctx, plantProvider);
@@ -181,4 +187,15 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
   });
 
   return { app, ctx };
+}
+
+/** Gemini answers first; when it fails or is slow, the assistant model (if any) answers instead. */
+function withAssistantFallback(
+  primary: AiProvider,
+  assistant: AiProvider | null,
+  onFallback: (e: AiProviderError) => void,
+): AiProvider {
+  return assistant
+    ? new FallbackProvider(primary, assistant, { primaryTimeoutMs: 12_000, onFallback })
+    : primary;
 }
