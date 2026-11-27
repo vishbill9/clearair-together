@@ -58,3 +58,7 @@ platform. Run `purgeExpired` (see `src/routes/indoor.ts`) on a schedule if you e
 4. Set `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` (both or neither). The "Continue with Google" button appears automatically.
 
 Flow: authorization code with PKCE (S256), a signed single-use state cookie, nonce, and server-side code exchange. The same verified email links to the existing account; a first-time user keeps anything already saved in the browser.
+
+## Voice talk (Gemini Live)
+
+Set `GOOGLE_GEMINI_API_KEY` (create it in Google AI Studio), `LIVE_AI_ENABLED=true` and `GOOGLE_GEMINI_LIVE_MODEL` (Render blueprint default: `gemini-3.8-live`; check Google's Live API docs for the current id). The browser needs microphone permission and https. If any of these is missing the Ask & talk page says voice is off and typing keeps working.

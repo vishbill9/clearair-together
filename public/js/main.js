@@ -83,6 +83,9 @@ async function loadConfig() {
   show($('talk-btn'), voiceOk);
   show($('voice-on'), voiceOk);
   show($('voice-off'), !voiceOk);
+  $('voice-off').textContent = i.live
+    ? 'Your browser cannot use the microphone here. Use a recent browser over https, or type your question instead.'
+    : 'Voice talk is not switched on for this server yet. You can still type your questions.';
   $('explain-btn').disabled = !i.assistant;
   if (!i.assistant) $('chat-send').disabled = false; // still lets emergency wording through
 }
