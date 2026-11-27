@@ -83,10 +83,15 @@ export function compareRoutines(input: {
       notes.push('Cleaner for emissions, but you may be more exposed on poor-air days.');
     if (exposure === 'lower' && emissions === 'higher')
       notes.push('Lowers your own exposure but adds emissions.');
-    if (exposure === 'unknown')
+    if (input.current === 'unknown') {
+      notes.push('Add how you usually travel in My home to compare this with your routine.');
+    } else if (exposure === 'unknown') {
       notes.push(
-        'Exposure effect depends on air quality that is not currently available or not meaningful today.',
+        input.severity === 'unknown'
+          ? 'There is no verified air reading right now, so exposure cannot be compared.'
+          : 'Air is good today, so differences in exposure are not meaningful.',
       );
+    }
     out.push({ id: c, label: LABELS[c] ?? c, mode: c, exposure, emissions, notes });
   }
   return out;

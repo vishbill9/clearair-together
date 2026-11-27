@@ -43,6 +43,16 @@ describe('exposure and emissions are computed separately', () => {
   });
 });
 
+describe('compare notes explain why a result is unknown', () => {
+  const note = (current: 'car' | 'unknown', severity: 'good' | 'unknown') =>
+    compareRoutines({ current, candidates: ['walk'], severity, canWorkFromHome: false })[0]!.notes.join(' ');
+  it('names the real reason', () => {
+    assert.match(note('unknown', 'good'), /usually travel/);
+    assert.match(note('car', 'unknown'), /no verified air reading/);
+    assert.match(note('car', 'good'), /Air is good today/);
+  });
+});
+
 describe('severity mapping respects index direction', () => {
   it('uaqi is higher = better; local indexes are higher = worse', () => {
     assert.equal(severityOf({ code: 'uaqi', displayName: '', aqi: 90, category: '' }), 'good');

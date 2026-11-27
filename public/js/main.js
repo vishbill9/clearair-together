@@ -376,6 +376,7 @@ async function compare() {
       ),
     );
     show(tbl, d.options.length > 0);
+    show($('compare-setup'), d.currentRoutine === 'unknown');
     setMsg(
       msg,
       d.options.length
