@@ -1,4 +1,4 @@
-import WebSocket from 'ws';
+import { WebSocket, type RawData } from 'ws';
 import { z } from 'zod';
 
 export const GEMINI_LIVE_URL =
@@ -35,7 +35,7 @@ export type ClientMsg = z.infer<typeof clientMsgSchema>;
 export const liveQuerySchema = z
   .object({
     csrf: z.string(),
-    householdId: z.string().uuid().optional(),
+    householdId: z.uuid().optional(),
     lat: z.coerce.number().min(-90).max(90).optional(),
     lng: z.coerce.number().min(-180).max(180).optional(),
     languageCode: z
@@ -58,12 +58,22 @@ export interface UpstreamMessage {
   };
 }
 
-export const sendJson = (ws: WebSocket, m: unknown): void => {
+/** The socket methods the proxy uses; both the browser-facing and the Gemini-facing sockets satisfy it. */
+export type Socket = Pick<WebSocket, 'send' | 'close' | 'readyState' | 'on'>;
+
+/** A text frame as a string, whatever buffer shape `ws` delivered it in. */
+export function rawText(raw: RawData): string {
+  if (Array.isArray(raw)) return Buffer.concat(raw).toString('utf8');
+  return Buffer.isBuffer(raw) ? raw.toString('utf8') : Buffer.from(new Uint8Array(raw)).toString('utf8');
+}
+
+export const sendJson = (ws: Socket, m: unknown): void => {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m));
 };
 
 export const caption = (text: unknown) => String(text).slice(0, MAX_CAPTION_CHARS);
 
+/** First message to Gemini Live: model, audio output, transcription, and the verified context. */
 export function setupMessage(model: string, verifiedContext: string): string {
   return JSON.stringify({
     setup: {
@@ -78,6 +88,7 @@ export function setupMessage(model: string, verifiedContext: string): string {
   });
 }
 
+/** Translates a browser audio message into Gemini Live's realtime input format. */
 export function upstreamInput(msg: Exclude<ClientMsg, { type: 'stop' }>): string {
   if (msg.type === 'audio') {
     return JSON.stringify({ realtimeInput: { audio: { data: msg.data, mimeType: 'audio/pcm;rate=16000' } } });
@@ -85,11 +96,15 @@ export function upstreamInput(msg: Exclude<ClientMsg, { type: 'stop' }>): string
   return JSON.stringify({ realtimeInput: { audioStreamEnd: true } });
 }
 
+type InlineData = { data?: string; mimeType?: unknown } | undefined;
+
+const isAudio = (d: InlineData): d is { data: string; mimeType: string } =>
+  Boolean(d?.data) && typeof d?.mimeType === 'string' && d.mimeType.startsWith('audio/');
+
 /** Audio chunks from a model turn, ignoring anything that is not audio. */
 export function audioParts(sc: NonNullable<UpstreamMessage['serverContent']>) {
-  return (sc.modelTurn?.parts ?? []).flatMap((part) => {
-    const d = part?.inlineData;
-    const isAudio = Boolean(d?.data) && typeof d?.mimeType === 'string' && d.mimeType.startsWith('audio/');
-    return isAudio ? [{ mimeType: d!.mimeType as string, data: d!.data as string }] : [];
-  });
+  return (sc.modelTurn?.parts ?? [])
+    .map((part) => part.inlineData)
+    .filter(isAudio)
+    .map((d) => ({ mimeType: d.mimeType, data: d.data }));
 }

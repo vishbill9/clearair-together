@@ -22,6 +22,7 @@ export const requireDb = (ctx: AppContext) => {
   return ctx.dbh.db;
 };
 
+/** Cookie settings shared by session and CSRF cookies: `Secure` in production, SameSite=Lax. */
 export function cookieOptions(ctx: AppContext, httpOnly: boolean) {
   return {
     path: '/',
@@ -67,6 +68,7 @@ function clientHash(ctx: AppContext, ip: string): string {
   return createHash('sha256').update(`${ctx.config.sessionSecret}:${ip}`).digest('hex').slice(0, 16);
 }
 
+/** Records a security-relevant event. Metadata must not contain user text, tokens or keys. */
 export async function audit(
   ctx: AppContext,
   req: FastifyRequest,

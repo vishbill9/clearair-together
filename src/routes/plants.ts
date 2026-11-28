@@ -9,16 +9,15 @@ import { parse } from './validate.js';
 
 const heavy = { config: { rateLimit: { max: 15, timeWindow: '1 minute' } } };
 
-export async function registerPlants(
-  app: FastifyInstance,
-  ctx: AppContext,
-  provider: AiProvider | null,
-): Promise<void> {
-  app.get('/api/v1/plants', async (req) =>
-    ok(req.id, {
-      plants: PLANTS,
-      note: 'Houseplants change indoor air quality very little in real rooms. They are suggested for greenery and wellbeing, not to clean air.',
-    }),
+/** Houseplant list and plant chat. Ingestion worries get fixed urgent guidance without a model call. */
+export function registerPlants(app: FastifyInstance, ctx: AppContext, provider: AiProvider | null): void {
+  app.get('/api/v1/plants', (req, reply) =>
+    reply.send(
+      ok(req.id, {
+        plants: PLANTS,
+        note: 'Houseplants change indoor air quality very little in real rooms. They are suggested for greenery and wellbeing, not to clean air.',
+      }),
+    ),
   );
 
   app.post('/api/v1/plants/chat', heavy, async (req) => {

@@ -109,6 +109,13 @@ function insertHousehold(db: Db, userId: string, body: HouseholdInput) {
   });
 }
 
+/** Reads back a household just written by this user; missing here means a broken invariant. */
+async function reloadHousehold(db: Db, userId: string, id: string): Promise<OwnedHousehold> {
+  const h = await getOwnedHousehold(db, userId, id);
+  if (!h) throw new AppError('internal_error', 500, 'Could not load the household.');
+  return h;
+}
+
 async function latestSnapshotId(db: Db, h: OwnedHousehold): Promise<string | null> {
   const key = locationKey(h.household.latitude, h.household.longitude, h.household.languageCode);
   const [s] = await db
@@ -148,7 +155,7 @@ async function persistPlan(db: Db, target: PlanTarget, plan: DailyPlan) {
 }
 
 /** Households the signed-in (or anonymous) user owns, their constraints and daily plans. */
-export async function registerHouseholdRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+export function registerHouseholdRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post('/api/v1/households', HEAVY, async (req, reply) => {
     const body = parse(householdCreateSchema, req.body);
     const db = requireDb(ctx);
@@ -162,7 +169,7 @@ export async function registerHouseholdRoutes(app: FastifyInstance, ctx: AppCont
       resourceId: created.id,
     });
     reply.code(201);
-    return ok(req.id, publicHousehold((await getOwnedHousehold(db, userId, created.id))!));
+    return ok(req.id, publicHousehold(await reloadHousehold(db, userId, created.id)));
   });
 
   app.get('/api/v1/households/:id', async (req) => {
@@ -189,7 +196,7 @@ export async function registerHouseholdRoutes(app: FastifyInstance, ctx: AppCont
       resourceType: 'household',
       resourceId: id,
     });
-    return ok(req.id, publicHousehold((await getOwnedHousehold(db, userId, id))!));
+    return ok(req.id, publicHousehold(await reloadHousehold(db, userId, id)));
   });
 
   app.post('/api/v1/households/:id/daily-plan', HEAVY, async (req) => {

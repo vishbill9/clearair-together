@@ -34,7 +34,7 @@ export type AssistantOutput = z.infer<typeof assistantOutputSchema>;
 export const assistantRequestSchema = z
   .object({
     message: z.string().trim().min(1).max(800),
-    householdId: z.string().uuid().optional(),
+    householdId: z.uuid().optional(),
     lat: z.coerce.number().min(-90).max(90).optional(),
     lng: z.coerce.number().min(-180).max(180).optional(),
     languageCode: z

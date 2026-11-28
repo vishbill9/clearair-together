@@ -28,6 +28,7 @@ export async function getOwnedHousehold(db: Db, userId: string, householdId: str
   return { household: h, members, constraints: constraints ?? null };
 }
 
+/** A recommendation, only if it belongs to one of the user's households. */
 export async function getOwnedRecommendation(db: Db, userId: string, recommendationId: string) {
   const [r] = await db
     .select({ rec: recommendations })
@@ -45,6 +46,7 @@ export interface PlanItemsToSave {
   items: PlanItem[];
 }
 
+/** Stores plan items as recommendations for the household and day; returns their ids and titles. */
 export async function savePlanItems(db: Db, { householdId, snapshotId, planDate, items }: PlanItemsToSave) {
   if (items.length === 0) return [];
   return db
@@ -73,6 +75,7 @@ export interface FeedbackEvent {
   note: string | null;
 }
 
+/** Saves (or replaces) the user's feedback of one type on a recommendation. */
 export async function recordFeedback(db: Db, { recommendationId, userId, eventType, note }: FeedbackEvent) {
   await db
     .insert(recommendationEvents)

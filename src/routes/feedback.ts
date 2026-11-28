@@ -14,7 +14,7 @@ const feedbackSchema = z
   .strict();
 
 /** Feedback on a recommendation the user owns. */
-export async function registerFeedbackRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+export function registerFeedbackRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post('/api/v1/recommendations/:id/feedback', async (req, reply) => {
     const { id } = parse(uuidParam, req.params);
     const body = parse(feedbackSchema, req.body);

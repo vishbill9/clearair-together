@@ -12,4 +12,4 @@ export function parse<T>(schema: ZodType<T>, data: unknown): T {
   );
 }
 
-export const uuidParam = z.object({ id: z.string().uuid() }).strict();
+export const uuidParam = z.object({ id: z.uuid() }).strict();

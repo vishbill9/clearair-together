@@ -2,22 +2,21 @@ import { z } from 'zod';
 import type { AirQualityIndex, AirQualitySnapshot, ForecastHour, Pollutant } from './types.js';
 import { roundCoordinate } from './request.js';
 
+/** Google returned a body that does not match the documented response shape. */
 export class MalformedResponseError extends Error {}
 
-const concentration = z
-  .object({ value: z.number().finite().optional(), units: z.string().optional() })
-  .passthrough();
+const concentration = z.object({ value: z.number().optional(), units: z.string().optional() }).loose();
 
 const indexSchema = z
   .object({
     code: z.string().min(1).max(40),
     displayName: z.string().max(120).optional(),
-    aqi: z.number().finite().optional(),
+    aqi: z.number().optional(),
     aqiDisplay: z.string().max(20).optional(),
     category: z.string().max(120).optional(),
     dominantPollutant: z.string().max(20).optional(),
   })
-  .passthrough();
+  .loose();
 
 const pollutantSchema = z
   .object({
@@ -26,7 +25,7 @@ const pollutantSchema = z
     fullName: z.string().max(120).optional(),
     concentration: concentration.optional(),
   })
-  .passthrough();
+  .loose();
 
 const hourSchema = z
   .object({
@@ -36,7 +35,7 @@ const hourSchema = z
     pollutants: z.array(pollutantSchema).max(30).optional(),
     healthRecommendations: z.record(z.string(), z.unknown()).optional(),
   })
-  .passthrough();
+  .loose();
 
 const currentResponseSchema = hourSchema;
 
@@ -46,7 +45,7 @@ export const forecastResponseSchema = z
     regionCode: z.string().max(8).optional(),
     nextPageToken: z.string().max(4096).optional(),
   })
-  .passthrough();
+  .loose();
 
 const UNIT_LABELS: Record<string, string> = {
   MICROGRAMS_PER_CUBIC_METER: 'µg/m³',
@@ -108,6 +107,7 @@ function normalizeHealth(raw: Record<string, unknown> | undefined): Record<strin
   return Object.keys(out).length ? out : undefined;
 }
 
+/** Validates a current-conditions response and maps it to our snapshot type; throws if malformed. */
 export function normalizeCurrent(
   body: unknown,
   ctx: { latitude: number; longitude: number; fetchedAt: Date; approximateLabel?: string },
@@ -140,6 +140,7 @@ export function normalizeCurrent(
   return snapshot;
 }
 
+/** Maps one forecast hour; null when it carries no index or pollutant data. */
 export function normalizeForecastHour(raw: z.infer<typeof hourSchema>): ForecastHour | null {
   const indexes = normalizeIndexes(raw.indexes);
   const pollutants = normalizePollutants(raw.pollutants);

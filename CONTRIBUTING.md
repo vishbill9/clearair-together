@@ -26,6 +26,9 @@ CI runs the same steps and the build fails on any error.
   service, return `ok(...)`. Business rules live in pure functions (`src/domain/`) with unit tests.
 - **Limits.** Complexity ≤ 10, functions ≤ 60 lines, files ≤ 300 lines, ≤ 4 parameters (use an options object).
   ESLint enforces these; split code rather than disabling a rule.
+- **Types.** No `any`, no non-null assertions (`!`) and no double casts: narrow values with real checks. The
+  typed lint rules enforce this.
+- **Docs.** Give every exported function and class a one-line doc comment that says what it guarantees.
 - **Errors.** Throw `AppError` with a public message. Never put user text, model output, tokens or keys in logs or
   error details.
 - **Air-quality data.** Only `src/google/` may produce readings. Never add a fallback number or an estimate.

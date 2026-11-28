@@ -16,7 +16,7 @@ export function forecastWindow(now: Date, maxHours: number, start?: string, end?
 }
 
 /** Google Air Quality data only; every response says whether real data is available. */
-export async function registerAirQualityRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+export function registerAirQualityRoutes(app: FastifyInstance, ctx: AppContext): void {
   const maxHours = ctx.config.airQuality.maxForecastHours;
 
   app.get('/api/v1/air-quality', async (req) => {

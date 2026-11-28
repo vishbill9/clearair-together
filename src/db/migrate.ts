@@ -7,6 +7,7 @@ import postgres from 'postgres';
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const MIGRATIONS_FOLDER = path.resolve(here, '../../drizzle');
 
+/** Applies pending SQL migrations from `drizzle/`, using a single short-lived connection. */
 export async function runMigrations(databaseUrl: string): Promise<void> {
   const sql = postgres(databaseUrl, { max: 1, onnotice: () => {} });
   try {

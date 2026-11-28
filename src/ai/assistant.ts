@@ -43,6 +43,7 @@ Rules you must follow:
 - Respond with a single JSON object matching exactly this contract, and nothing else:
 ${OUTPUT_CONTRACT}`;
 
+/** Plain-text facts for the model: the verified reading (or that there is none) and household needs. */
 export function buildVerifiedContext(input: {
   aq: AirQualityResult;
   household: HouseholdContext | null;
@@ -121,6 +122,7 @@ function withStatusNotice(out: AssistantOutput, status: AirQualityResult['status
   return notice ? { ...out, safetyNotice: out.safetyNotice ?? notice } : { ...out };
 }
 
+/** Answers questions from verified context; model output is schema-checked and safety-filtered. */
 export class AssistantService {
   constructor(
     private readonly provider: AiProvider | null,

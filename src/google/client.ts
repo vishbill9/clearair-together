@@ -1,4 +1,5 @@
 import type { Config } from '../config.js';
+import { isAbort } from '../ai/http.js';
 import {
   buildCurrentRequest,
   buildForecastRequest,
@@ -30,6 +31,7 @@ export interface GoogleClientOptions {
 export type UpstreamKind =
   'auth' | 'rate_limited' | 'server' | 'timeout' | 'network' | 'malformed' | 'too_large' | 'bad_request';
 
+/** Google Air Quality could not give a usable answer (timeout, network, quota, auth or malformed). */
 export class UpstreamError extends Error {
   constructor(
     public readonly kind: UpstreamKind,
@@ -41,6 +43,7 @@ export class UpstreamError extends Error {
 
 const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+/** Server-side client for the Google Air Quality API with timeouts, retries and pagination limits. */
 export class GoogleAirQualityClient {
   private readonly o: Required<Omit<GoogleClientOptions, 'fetchImpl'>> & { fetchImpl: FetchLike };
 
@@ -105,7 +108,7 @@ export class GoogleAirQualityClient {
       });
     } catch (e) {
       clearTimeout(timer);
-      if ((e as Error)?.name === 'AbortError') throw new UpstreamError('timeout');
+      if (isAbort(e)) throw new UpstreamError('timeout');
       throw new UpstreamError('network');
     }
     try {

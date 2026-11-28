@@ -9,12 +9,12 @@ import { registerRoutineRoutes } from './routines.js';
 import { registerSystemRoutes } from './system.js';
 
 /** Registers the public JSON API, one module per feature. */
-export async function registerApi(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  await registerSystemRoutes(app, ctx);
-  await registerAirQualityRoutes(app, ctx);
-  await registerHouseholdRoutes(app, ctx);
-  await registerAssistantRoutes(app, ctx);
-  await registerRoutineRoutes(app, ctx);
-  await registerFeedbackRoutes(app, ctx);
-  await registerCommunityRoutes(app, ctx);
+export function registerApi(app: FastifyInstance, ctx: AppContext): void {
+  registerSystemRoutes(app, ctx);
+  registerAirQualityRoutes(app, ctx);
+  registerHouseholdRoutes(app, ctx);
+  registerAssistantRoutes(app, ctx);
+  registerRoutineRoutes(app, ctx);
+  registerFeedbackRoutes(app, ctx);
+  registerCommunityRoutes(app, ctx);
 }

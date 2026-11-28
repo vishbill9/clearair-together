@@ -124,7 +124,7 @@ export async function startVoice(opts) {
     try {
       m = JSON.parse(ev.data);
     } catch {
-      return;
+      return; // ignore a malformed server frame
     }
     handlers[m.type]?.(m);
   };

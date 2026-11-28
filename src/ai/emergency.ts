@@ -25,6 +25,7 @@ const NUMBERS: Record<string, string> = {
   AE: '998',
 };
 
+/** The local emergency number for a region code, or null when it is not in our list. */
 export function emergencyNumber(regionCode?: string | null): string | null {
   if (!regionCode) return null;
   return NUMBERS[regionCode.toUpperCase()] ?? null;
@@ -44,6 +45,7 @@ const EMERGENCY_PATTERNS: RegExp[] = [
   /\b(choking|poison(ed|ing)?)\b/i,
 ];
 
+/** True when the text describes urgent symptoms; such messages never reach the model. */
 export function isEmergencyMessage(text: string): boolean {
   return EMERGENCY_PATTERNS.some((p) => p.test(text));
 }
@@ -55,6 +57,7 @@ export interface EmergencyResponse {
   notEmergencyService: true;
 }
 
+/** Fixed, pre-written urgent guidance, naming the local emergency number when known. */
 export function emergencyResponse(regionCode?: string | null): EmergencyResponse {
   const n = emergencyNumber(regionCode);
   const call = n

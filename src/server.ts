@@ -28,7 +28,7 @@ async function main() {
   await app.listen({ port: config.port, host: '0.0.0.0' });
 }
 
-main().catch((e) => {
-  console.error('Fatal startup error:', (e as Error).message);
+main().catch((e: unknown) => {
+  console.error('Fatal startup error:', e instanceof Error ? e.message : String(e));
   process.exit(1);
 });

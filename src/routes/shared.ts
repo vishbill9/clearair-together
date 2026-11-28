@@ -34,6 +34,7 @@ export function currentAirFor(ctx: AppContext, h: OwnedHousehold): Promise<AirQu
   });
 }
 
+/** The parts of a household the plan rules need: age groups, cautions and constraints. */
 export function toPlanHousehold(h: OwnedHousehold): PlanHousehold {
   const c = h.constraints;
   return {

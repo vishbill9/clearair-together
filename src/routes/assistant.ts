@@ -44,6 +44,12 @@ async function resolveContext(
   };
 }
 
+/** The verified reading for the question's place, or an honest "no location" result. */
+function airQualityFor(ctx: AppContext, c: AskContext): Promise<AirQualityResult> {
+  if (c.lat === undefined || c.lng === undefined) return Promise.resolve(NO_LOCATION);
+  return ctx.aq.getCurrent({ lat: c.lat, lng: c.lng, languageCode: c.languageCode });
+}
+
 function auditType(result: AssistantResult): string {
   if (result.kind === 'emergency') return 'assistant.emergency';
   return result.blocked ? 'assistant.blocked' : 'assistant.answer';
@@ -57,7 +63,7 @@ function toPublicError(e: AiProviderError): AppError {
 }
 
 /** Plain-language guidance. Urgent symptoms are answered with fixed guidance and never reach the model. */
-export async function registerAssistantRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+export function registerAssistantRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post(
     '/api/v1/assistant/messages',
     { config: { rateLimit: { max: 15, timeWindow: '1 minute' } } },
@@ -67,11 +73,7 @@ export async function registerAssistantRoutes(app: FastifyInstance, ctx: AppCont
       if (!emergency && !ctx.assistant.configured) throw notConfigured('The assistant');
 
       const c = await resolveContext(ctx, req, body);
-      const hasLocation = c.lat !== undefined && c.lng !== undefined;
-      const aq =
-        !emergency && hasLocation
-          ? await ctx.aq.getCurrent({ lat: c.lat!, lng: c.lng!, languageCode: c.languageCode })
-          : NO_LOCATION;
+      const aq = emergency ? NO_LOCATION : await airQualityFor(ctx, c);
       try {
         const result = await ctx.assistant.answer({ message: body.message, aq, household: c.household });
         await audit(ctx, req, {

@@ -1,5 +1,5 @@
 import type { FastifyRequest } from 'fastify';
-import WebSocket from 'ws';
+import { WebSocket, type RawData } from 'ws';
 import { audit, type AppContext } from '../context.js';
 import { buildVerifiedContext, type HouseholdContext } from '../ai/assistant.js';
 import { emergencyResponse, isEmergencyMessage } from '../ai/emergency.js';
@@ -10,10 +10,12 @@ import {
   caption,
   clientMsgSchema,
   MAX_CLIENT_MSGS_PER_SEC,
+  rawText,
   sendJson,
   setupMessage,
   upstreamInput,
   type ClientMsg,
+  type Socket,
   type UpstreamMessage,
 } from './protocol.js';
 
@@ -28,8 +30,10 @@ export interface LiveSessionDeps {
   ctx: AppContext;
   req: FastifyRequest;
   userId: string;
-  client: WebSocket;
-  upstream: WebSocket;
+  client: Socket;
+  upstream: Socket;
+  /** Gemini Live model id, already checked to be configured. */
+  model: string;
   context: LiveContext;
   onClose: () => void;
 }
@@ -64,10 +68,10 @@ export class LiveSession {
     this.timer = setInterval(() => this.checkLimits(live.maxSessionSeconds, live.idleTimeoutSeconds), 1000);
     this.timer.unref();
     d.upstream.on('open', () => d.upstream.send(this.setup()));
-    d.upstream.on('message', (raw: WebSocket.RawData) => this.onUpstream(raw));
+    d.upstream.on('message', (raw: RawData) => this.onUpstream(raw));
     d.upstream.on('close', () => this.finish('upstream_closed'));
     d.upstream.on('error', () => this.finish('upstream_error')); // never forward upstream error text
-    d.client.on('message', (raw: WebSocket.RawData, isBinary: boolean) => this.onClient(raw, isBinary));
+    d.client.on('message', (raw: RawData, isBinary: boolean) => this.onClient(raw, isBinary));
     d.client.on('close', () => this.finish('client_closed', false));
     d.client.on('error', () => this.finish('client_error', false));
   }
@@ -86,7 +90,7 @@ export class LiveSession {
   private setup(): string {
     const { aq, household } = this.d.context;
     const verified = buildVerifiedContext({ aq, household, now: this.d.ctx.now() });
-    return setupMessage(this.d.ctx.config.live.liveModel!, verified);
+    return setupMessage(this.d.model, verified);
   }
 
   private checkLimits(maxSeconds: number, idleSeconds: number): void {
@@ -95,13 +99,13 @@ export class LiveSession {
     else if (now - this.lastClientAudio > idleSeconds * 1000) this.finish('idle_timeout');
   }
 
-  private onUpstream(raw: WebSocket.RawData): void {
+  private onUpstream(raw: RawData): void {
     if (this.closed) return;
     let m: UpstreamMessage;
     try {
-      m = JSON.parse(raw.toString()) as UpstreamMessage;
+      m = JSON.parse(rawText(raw)) as UpstreamMessage;
     } catch {
-      return;
+      return; // ignore a malformed upstream frame; the session stays usable
     }
     if (m.setupComplete) this.sendReady();
     else if (m.serverContent) this.onServerContent(m.serverContent);
@@ -139,7 +143,7 @@ export class LiveSession {
 
   /** Returns false when the model's running answer broke the safety policy and the session was ended. */
   private onModelSpeech(raw: string): boolean {
-    this.turnText += String(raw);
+    this.turnText += raw;
     if (checkFreeText(this.turnText, this.d.context.aq.snapshot).length > 0) {
       sendJson(this.d.client, { type: 'blocked', message: BLOCKED_MESSAGE });
       void audit(this.d.ctx, this.d.req, { userId: this.d.userId, type: 'live.blocked' });
@@ -163,18 +167,25 @@ export class LiveSession {
     return ++this.msgCount > MAX_CLIENT_MSGS_PER_SEC;
   }
 
-  private onClient(raw: WebSocket.RawData, isBinary: boolean): void {
+  private onClient(raw: RawData, isBinary: boolean): void {
     if (this.closed) return;
-    if (isBinary) return this.finish('protocol_error');
     const now = Date.now();
-    if (this.overRateLimit(now)) return this.finish('rate_limited');
+    const problem = isBinary ? 'protocol_error' : this.overRateLimit(now) ? 'rate_limited' : null;
+    if (problem) {
+      this.finish(problem);
+      return;
+    }
     let msg: ClientMsg;
     try {
-      msg = clientMsgSchema.parse(JSON.parse(raw.toString()));
+      msg = clientMsgSchema.parse(JSON.parse(rawText(raw)));
     } catch {
-      return this.finish('protocol_error');
+      this.finish('protocol_error');
+      return;
     }
-    if (msg.type === 'stop') return this.finish('stopped_by_user');
+    if (msg.type === 'stop') {
+      this.finish('stopped_by_user');
+      return;
+    }
     if (this.d.upstream.readyState !== WebSocket.OPEN) return;
     this.lastClientAudio = now;
     this.d.upstream.send(upstreamInput(msg));

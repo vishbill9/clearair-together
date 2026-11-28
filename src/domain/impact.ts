@@ -50,6 +50,7 @@ function compare(a: number | undefined, b: number | undefined): Effect {
   return 'similar';
 }
 
+/** Qualitative change in exposure and emissions from switching `current` to `candidate`. */
 export function evaluateOption(
   current: CommuteMode,
   candidate: CommuteMode | 'work_from_home',

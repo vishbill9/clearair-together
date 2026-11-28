@@ -33,6 +33,23 @@ export const $$ = (selector) =>
 export const clear = (el) => {
   while (el.firstChild) el.removeChild(el.firstChild);
 };
+/**
+ * Shows or clears a form error and marks the given fields invalid, so screen readers announce the
+ * message with the field. The first invalid field receives focus.
+ * @param {HTMLElement} errorEl
+ * @param {string} text
+ * @param {HTMLElement[]} fields
+ */
+export function fieldError(errorEl, text, fields) {
+  errorEl.textContent = text;
+  errorEl.hidden = !text;
+  for (const f of fields) {
+    if (text) f.setAttribute('aria-invalid', 'true');
+    else f.removeAttribute('aria-invalid');
+  }
+  if (text) fields[0]?.focus();
+}
+
 export const show = (el, on = true) => {
   el.hidden = !on;
 };

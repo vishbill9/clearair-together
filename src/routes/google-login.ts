@@ -38,7 +38,7 @@ const claims = z.object({
   sub: z.string().min(1).max(255),
   exp: z.number(),
   nonce: z.string().optional(),
-  email: z.string().email().max(254),
+  email: z.email().max(254),
   email_verified: z.union([z.boolean(), z.literal('true')]),
   name: z.string().max(200).optional(),
   given_name: z.string().max(100).optional(),
@@ -171,11 +171,11 @@ function authorizationUrl(clientId: string, redirectUri: string, t: OAuthTransac
 const home = (error?: string) => `/${error ? `?auth_error=${error}` : ''}#/today`;
 
 /** "Sign in with Google": OAuth authorization code flow with PKCE, state and nonce. */
-export async function registerGoogleLogin(
+export function registerGoogleLogin(
   app: FastifyInstance,
   ctx: AppContext,
   fetchImpl: OAuthFetch = (u, i) => fetch(u, i),
-): Promise<void> {
+): void {
   const redirectUri = `${ctx.config.appOrigin}${CALLBACK_PATH}`;
   const cookieBase = {
     path: COOKIE_PATH,
@@ -199,32 +199,35 @@ export async function registerGoogleLogin(
     return reply.redirect(authorizationUrl(clientId, redirectUri, t));
   });
 
-  app.get(CALLBACK_PATH, async (req, reply) => {
+  /** Completes sign-in and returns where to send the browser; a `SignInFailure` means a known failure. */
+  async function completeSignIn(req: FastifyRequest, reply: FastifyReply): Promise<string> {
     const cfg = client();
+    const { code, txn } = validateCallback(ctx, req.query, req.cookies[OAUTH_COOKIE]);
+    const claims = await verifiedClaims(
+      fetchImpl,
+      cfg,
+      { code, verifier: txn.verifier, redirectUri },
+      (idToken) =>
+        readIdToken(idToken, { clientId: cfg.clientId, nonce: txn.nonce, now: ctx.now().getTime() }),
+    );
+    const userId = await resolveUser(ctx, req, reply, claims);
+    await requireDb(ctx).update(users).set({ lastSeenAt: ctx.now() }).where(eq(users.id, userId));
+    reply.setCookie(SESSION_COOKIE, signSession(ctx.config.sessionSecret, userId), cookieOptions(ctx, true));
+    await audit(ctx, req, { userId, type: 'auth.google_login' });
+    return home();
+  }
+
+  app.get(CALLBACK_PATH, async (req, reply) => {
     reply.clearCookie(OAUTH_COOKIE, cookieBase);
+    let target: string;
     try {
-      const { code, txn } = validateCallback(ctx, req.query, req.cookies[OAUTH_COOKIE]);
-      const claims = await verifiedClaims(
-        fetchImpl,
-        cfg,
-        { code, verifier: txn.verifier, redirectUri },
-        (idToken) =>
-          readIdToken(idToken, { clientId: cfg.clientId, nonce: txn.nonce, now: ctx.now().getTime() }),
-      );
-      const userId = await resolveUser(ctx, req, reply, claims);
-      await requireDb(ctx).update(users).set({ lastSeenAt: ctx.now() }).where(eq(users.id, userId));
-      reply.setCookie(
-        SESSION_COOKIE,
-        signSession(ctx.config.sessionSecret, userId),
-        cookieOptions(ctx, true),
-      );
-      await audit(ctx, req, { userId, type: 'auth.google_login' });
-      return reply.redirect(home());
+      target = await completeSignIn(req, reply);
     } catch (e) {
       if (!(e instanceof SignInFailure)) throw e;
       await audit(ctx, req, { type: 'auth.google_failed', metadata: { reason: e.reason } });
-      return reply.redirect(home(e.error));
+      target = home(e.error);
     }
+    return reply.redirect(target);
   });
 }
 

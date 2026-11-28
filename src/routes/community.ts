@@ -22,19 +22,19 @@ const challengeSchema = z
   .object({
     title: z.string().trim().min(3).max(100),
     description: z.string().trim().max(500).default(''),
-    startsAt: z.string().datetime(),
-    endsAt: z.string().datetime(),
+    startsAt: z.iso.datetime(),
+    endsAt: z.iso.datetime(),
   })
   .strict()
   .refine((v) => Date.parse(v.endsAt) > Date.parse(v.startsAt), {
-    message: 'endsAt must be after startsAt',
+    error: 'endsAt must be after startsAt',
     path: ['endsAt'],
   });
 
 const actionSchema = z.object({ actionKey: z.enum(ACTION_KEYS) }).strict();
 
 /** Community challenges. Responses are aggregate-only and k-anonymised (see `challengeSummary`). */
-export async function registerCommunityRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+export function registerCommunityRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post('/api/v1/community/challenges', HEAVY, async (req, reply) => {
     const body = parse(challengeSchema, req.body);
     const db = requireDb(ctx);

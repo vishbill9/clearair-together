@@ -155,6 +155,7 @@ export function checkFreeText(text: string, snapshot: AirQualitySnapshot | null)
   ]);
 }
 
+/** Every safety rule an assistant answer breaks, including citations outside the approved list. */
 export function checkAssistantOutput(output: AssistantOutput, ctx: SafetyContext): Violation[] {
   const out = checkFreeText(allText(output), ctx.snapshot);
   const allowedIds = ctx.allowedSourceIds ?? APPROVED_SOURCE_IDS;

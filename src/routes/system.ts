@@ -26,7 +26,7 @@ async function isAuthenticated(ctx: AppContext, req: Parameters<typeof requireUs
 }
 
 /** Liveness, public feature flags and the CSRF/session bootstrap. */
-export async function registerSystemRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+export function registerSystemRoutes(app: FastifyInstance, ctx: AppContext): void {
   const cfg = ctx.config;
 
   app.get('/health', async (req) => {
@@ -39,13 +39,15 @@ export async function registerSystemRoutes(app: FastifyInstance, ctx: AppContext
     });
   });
 
-  app.get('/api/v1/config', async (req) =>
-    ok(req.id, {
-      integrations: cfg.integrations,
-      maxForecastHours: cfg.airQuality.maxForecastHours,
-      cacheTtlSeconds: cfg.airQuality.cacheTtlSeconds,
-      environment: cfg.env,
-    }),
+  app.get('/api/v1/config', (req, reply) =>
+    reply.send(
+      ok(req.id, {
+        integrations: cfg.integrations,
+        maxForecastHours: cfg.airQuality.maxForecastHours,
+        cacheTtlSeconds: cfg.airQuality.cacheTtlSeconds,
+        environment: cfg.env,
+      }),
+    ),
   );
 
   app.get('/api/v1/session', async (req) =>

@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import websocket from '@fastify/websocket';
-import WebSocket from 'ws';
+import { WebSocket } from 'ws';
 import { audit, requireDb, requireUser, type AppContext } from '../context.js';
 import { AppError, notConfigured, notFound, unauthorized } from '../errors.js';
 import { ok } from '../envelope.js';
@@ -16,6 +16,7 @@ import {
   MAX_SESSIONS_PER_HOUR,
   sendJson,
   type LiveQuery,
+  type Socket,
 } from './protocol.js';
 import { LiveSession, type LiveContext } from './session.js';
 
@@ -49,10 +50,10 @@ async function admit(ctx: AppContext, req: FastifyRequest, origins: Set<string>,
   const origin = req.headers.origin;
   if (!origin || !origins.has(origin)) throw new AppError('csrf_failed', 403, 'Origin not allowed.');
   const { csrf } = req.query as { csrf?: string };
-  if (!csrfCheck(cfg.sessionSecret, req.cookies?.[CSRF_COOKIE], csrf)) {
+  if (!csrfCheck(cfg.sessionSecret, req.cookies[CSRF_COOKIE], csrf)) {
     throw new AppError('csrf_failed', 403, 'Missing or invalid token.');
   }
-  const userId = verifySession(cfg.sessionSecret, req.cookies?.[SESSION_COOKIE]);
+  const userId = verifySession(cfg.sessionSecret, req.cookies[SESSION_COOKIE]);
   if (!userId) throw unauthorized();
   await requireUser(ctx, req);
   limits.admit(userId);
@@ -82,9 +83,60 @@ async function liveContext(ctx: AppContext, userId: string, q: LiveQuery): Promi
   return { aq, household, regionCode: regionCode ?? aq.snapshot?.regionCode ?? null };
 }
 
-function reject(client: WebSocket, code: number, error: { code: string; message: string }, reason: string) {
+function reject(client: Socket, code: number, error: { code: string; message: string }, reason: string) {
   sendJson(client, { type: 'error', ...error });
   client.close(code, reason);
+}
+
+/** How to reach Gemini Live, or null when voice is not fully configured. */
+function liveConnector(cfg: AppContext['config'], upstream: UpstreamFactory | null) {
+  const { enabled, geminiApiKey, liveModel } = cfg.live;
+  if (!enabled || !cfg.integrations.live || !upstream || !geminiApiKey || !liveModel) return null;
+  return { model: liveModel, open: () => upstream(geminiApiKey) };
+}
+
+const SETUP_FAILED = { code: 'internal_error', message: 'Could not start the session.' };
+
+type Connector = NonNullable<ReturnType<typeof liveConnector>>;
+
+/** Builds the verified context and starts the proxied session; problems close the socket with a reason. */
+async function startSession(
+  ctx: AppContext,
+  live: { connector: Connector | null; limits: SessionLimits },
+  client: Socket,
+  req: FastifyRequest,
+): Promise<void> {
+  // Both were checked in preValidation; re-reading them here keeps the types honest.
+  const userId = verifySession(ctx.config.sessionSecret, req.cookies[SESSION_COOKIE]);
+  const { connector, limits } = live;
+  if (!userId || !connector) {
+    reject(client, 1011, SETUP_FAILED, 'setup failed');
+    return;
+  }
+  let context: LiveContext | null;
+  try {
+    context = await liveContext(ctx, userId, parse(liveQuerySchema, req.query));
+  } catch (e) {
+    req.log.warn({ err: { name: e instanceof Error ? e.name : 'unknown' } }, 'live voice setup failed');
+    reject(client, 1011, SETUP_FAILED, 'setup failed');
+    return;
+  }
+  if (!context) {
+    reject(client, 1008, { code: 'not_found', message: 'Household not found.' }, 'not found');
+    return;
+  }
+  const session = new LiveSession({
+    ctx,
+    req,
+    userId,
+    client,
+    upstream: connector.open(),
+    model: connector.model,
+    context,
+    onClose: () => limits.active.delete(userId),
+  });
+  limits.active.set(userId, session);
+  void audit(ctx, req, { userId, type: 'live.start' });
 }
 
 /** Optional voice conversation through a server-side Gemini Live proxy; the API key never reaches the browser. */
@@ -93,10 +145,9 @@ export async function registerLive(
   ctx: AppContext,
   upstream: UpstreamFactory | null,
 ): Promise<void> {
-  const cfg = ctx.config;
   const limits = new SessionLimits();
-  const origins = allowedOrigins(cfg);
-  const enabled = Boolean(cfg.live.enabled && cfg.integrations.live && upstream);
+  const origins = allowedOrigins(ctx.config);
+  const connector = liveConnector(ctx.config, upstream);
 
   await app.register(websocket, { options: { maxPayload: MAX_CLIENT_MSG_BYTES + 1024 } });
 
@@ -105,40 +156,11 @@ export async function registerLive(
     {
       websocket: true,
       preValidation: async (req) => {
-        if (!enabled) throw notConfigured('Live voice');
+        if (!connector) throw notConfigured('Live voice');
         await admit(ctx, req, origins, limits);
       },
     },
-    async (socket, req) => {
-      const client = socket as unknown as WebSocket;
-      const userId = verifySession(cfg.sessionSecret, req.cookies[SESSION_COOKIE])!;
-      const q = parse(liveQuerySchema, req.query);
-      let context: LiveContext | null;
-      try {
-        context = await liveContext(ctx, userId, q);
-      } catch {
-        return reject(
-          client,
-          1011,
-          { code: 'internal_error', message: 'Could not start the session.' },
-          'setup failed',
-        );
-      }
-      if (!context) {
-        return reject(client, 1008, { code: 'not_found', message: 'Household not found.' }, 'not found');
-      }
-      const session = new LiveSession({
-        ctx,
-        req,
-        userId,
-        client,
-        upstream: upstream!(cfg.live.geminiApiKey!),
-        context,
-        onClose: () => limits.active.delete(userId),
-      });
-      limits.active.set(userId, session);
-      void audit(ctx, req, { userId, type: 'live.start' });
-    },
+    (socket, req) => startSession(ctx, { connector, limits }, socket, req),
   );
 
   app.post('/api/v1/live/voice/stop', async (req) => {

@@ -91,7 +91,7 @@ async function upgradeToRegistered(
 }
 
 /** Email and password accounts. Passwords are hashed with scrypt and compared in constant time. */
-export async function registerAuth(app: FastifyInstance, ctx: AppContext): Promise<void> {
+export function registerAuth(app: FastifyInstance, ctx: AppContext): void {
   const setSession = (reply: Reply, userId: string) =>
     reply.setCookie(SESSION_COOKIE, signSession(ctx.config.sessionSecret, userId), cookieOptions(ctx, true));
 

@@ -56,6 +56,7 @@ export function primaryIndex(s: AirQualitySnapshot): AirQualityIndex | undefined
   return s.indexes.find((i) => i.code !== 'uaqi') ?? s.indexes[0];
 }
 
+/** Severity of the snapshot's primary index (regional when present), or `unknown`. */
 export function overallSeverity(s: AirQualitySnapshot): Severity {
   const p = primaryIndex(s);
   return p ? severityOf(p) : 'unknown';

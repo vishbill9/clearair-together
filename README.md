@@ -78,6 +78,7 @@ violation (audio cannot be recalled once played; see limitations).
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): modules, request flow, design decisions and quality gates.
 - [CONTRIBUTING.md](CONTRIBUTING.md): conventions and the checks to run before pushing.
+- [CHANGELOG.md](CHANGELOG.md): what changed and when. Licensed under [MIT](LICENSE).
 - [docs/SETUP.md](docs/SETUP.md): Google API enablement, Supabase/Neon, environment variables, deployment.
 - [docs/SECURITY.md](docs/SECURITY.md): threat model, controls and their tests.
 - [docs/TESTING.md](docs/TESTING.md): what is tested, and what is **not verified against live services**.

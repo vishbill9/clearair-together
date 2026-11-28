@@ -20,13 +20,13 @@ const ROUTINES = [
 
 const compareSchema = z
   .object({
-    householdId: z.string().uuid(),
+    householdId: z.uuid(),
     candidates: z.array(z.enum(ROUTINES)).min(1).max(8),
   })
   .strict();
 
 /** Compares routines against the household's usual commute; exposure and emissions stay separate. */
-export async function registerRoutineRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+export function registerRoutineRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post('/api/v1/scenarios/compare', HEAVY, async (req) => {
     const body = parse(compareSchema, req.body);
     const { household } = await loadOwnedHousehold(ctx, req, body.householdId);

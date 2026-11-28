@@ -51,6 +51,7 @@ const AIR_CLEANING_REVERSED =
 const NEGATION =
   /\b(not|n't|no|little|barely|hardly|cannot|can't|don't|doesn't|won't|myth|rather than|instead of)\b/i;
 
+/** True when any sentence claims plants clean or purify the air (negated sentences are allowed). */
 export function claimsAirCleaning(text: string): boolean {
   return text
     .split(/(?<=[.!?])\s+/)

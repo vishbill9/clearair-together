@@ -1,4 +1,4 @@
-import { $, $$, show } from './dom.js';
+import { $, $$, fieldError, show } from './dom.js';
 import { api, ApiError } from './api.js';
 
 const VIEWS = ['today', 'ask', 'household', 'routines', 'indoor', 'community'];
@@ -96,9 +96,11 @@ function closeAuth() {
   opener?.focus?.();
 }
 
-function authError(text) {
-  $('auth-error').textContent = text;
-  show($('auth-error'), Boolean(text));
+const authFields = () => [$('auth-email'), $('auth-pass')];
+
+/** Shows a sign-in problem and marks `fields` invalid; empty text clears every field. */
+function authError(text, fields = []) {
+  fieldError($('auth-error'), text, text ? fields : authFields());
 }
 
 /** Returns the request body, or null after showing what to fix. */
@@ -106,12 +108,15 @@ function authBody() {
   const email = $('auth-email').value.trim();
   const password = $('auth-pass').value;
   if (!email || !password) {
-    authError('Enter your email and password.');
+    authError(
+      'Enter your email and password.',
+      authFields().filter((f) => !f.value.trim()),
+    );
     return null;
   }
   if (mode !== 'register') return { email, password };
   if (password.length < 10) {
-    authError('Use at least 10 characters for your password.');
+    authError('Use at least 10 characters for your password.', [$('auth-pass')]);
     return null;
   }
   const name = $('auth-name').value.trim();

@@ -56,6 +56,7 @@ function loggerOptions(level: string): LoggerOptions {
   };
 }
 
+/** Pino logger that redacts authorization headers, cookies and API keys wherever they appear. */
 export function createLogger(level: string, destination?: NodeJS.WritableStream): Logger {
   return destination ? pino(loggerOptions(level), destination) : pino(loggerOptions(level));
 }

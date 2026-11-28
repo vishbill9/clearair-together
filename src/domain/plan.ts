@@ -169,7 +169,7 @@ function dayItems(severity: Severity, day: DayContext): PlanItem[] {
 }
 
 const hasScheduleFlexibility = (c: Constraints) =>
-  Boolean(c) && c!.timeFlexibility !== 'fixed' && c!.timeFlexibility !== 'unknown';
+  c !== null && c.timeFlexibility !== 'fixed' && c.timeFlexibility !== 'unknown';
 
 function noDataPlan(aq: AirQualityResult, quick: PlanItem[]): DailyPlan {
   return {

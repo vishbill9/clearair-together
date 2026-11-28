@@ -6,6 +6,7 @@ export interface AiRequest {
   timeoutMs: number;
 }
 
+/** A model call failed. `kind` drives the public error; `detail` is a content-free reason for logs. */
 export class AiProviderError extends Error {
   constructor(
     public readonly kind: 'timeout' | 'auth' | 'rate_limited' | 'server' | 'bad_response' | 'network',

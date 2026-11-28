@@ -60,6 +60,8 @@ Fastify ── security/plugin.ts (CSP, CORS, rate limit, CSRF)
 Enforced on every push by CI (`.github/workflows/ci.yml`):
 
 - TypeScript strict for the server and type-checked JavaScript for the browser (`npm run typecheck`).
+- typescript-eslint `strictTypeChecked` rules for all server code: no floating promises, no unsafe `any`, no
+  non-null assertions, no needless conditions.
 - ESLint with size and complexity limits for application code: cyclomatic complexity ≤ 10, functions ≤ 60 lines,
   files ≤ 300 lines, ≤ 4 parameters, nesting ≤ 3.
 - Prettier formatting, an offline secret scan plus gitleaks, and `npm audit` for runtime dependencies.

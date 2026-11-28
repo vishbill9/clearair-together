@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
@@ -16,6 +16,7 @@ import {
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+/** Origins allowed to call the API with credentials: the app itself plus any configured extras. */
 export function allowedOrigins(c: Config): Set<string> {
   return new Set([new URL(c.appOrigin).origin, ...c.corsAllowedOrigins]);
 }
@@ -63,7 +64,7 @@ async function registerHeaders(app: FastifyInstance, config: Config): Promise<vo
 async function registerCors(app: FastifyInstance, origins: Set<string>): Promise<void> {
   await app.register(cors, {
     // No origin means same-origin or non-browser; no CORS headers are needed.
-    origin: (origin, cb) => cb(null, Boolean(origin) && origins.has(origin!)),
+    origin: (origin, cb) => cb(null, origin !== undefined && origins.has(origin)),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['content-type', CSRF_HEADER],
@@ -78,17 +79,30 @@ async function registerRateLimit(app: FastifyInstance, config: Config): Promise<
     allowList: (req) => !isApi(req.url),
     max: 120,
     timeWindow: '1 minute',
-    keyGenerator: (req) => verifySession(config.sessionSecret, req.cookies?.[SESSION_COOKIE]) ?? req.ip,
+    keyGenerator: (req) => verifySession(config.sessionSecret, req.cookies[SESSION_COOKIE]) ?? req.ip,
     errorResponseBuilder: () =>
       new AppError('rate_limited', 429, 'Too many requests. Please slow down and try again shortly.'),
   });
+}
+
+/** Why an API write must be rejected (foreign origin, missing or bad token), or null when it may proceed. */
+function csrfProblem(req: FastifyRequest, secret: string, origins: Set<string>): AppError | null {
+  if (!MUTATING.has(req.method) || !req.url.startsWith('/api/')) return null;
+  const origin = req.headers.origin;
+  if (origin && !origins.has(origin))
+    return new AppError('csrf_failed', 403, 'Cross-origin request rejected.');
+  const header = req.headers[CSRF_HEADER];
+  if (!csrfCheck(secret, req.cookies[CSRF_COOKIE], typeof header === 'string' ? header : undefined)) {
+    return new AppError('csrf_failed', 403, 'Missing or invalid CSRF token.');
+  }
+  return null;
 }
 
 /** Double-submit CSRF: every client gets a signed token cookie; API writes must echo it in a header. */
 function registerCsrf(app: FastifyInstance, config: Config, origins: Set<string>): void {
   const secret = config.sessionSecret;
   app.addHook('onRequest', async (req, reply) => {
-    const c = req.cookies?.[CSRF_COOKIE];
+    const c = req.cookies[CSRF_COOKIE];
     if (c && csrfCheck(secret, c, c)) return;
     const token = newCsrfToken(secret);
     req.cookies[CSRF_COOKIE] = token;
@@ -101,15 +115,8 @@ function registerCsrf(app: FastifyInstance, config: Config, origins: Set<string>
     });
   });
 
-  app.addHook('preHandler', async (req) => {
-    if (!MUTATING.has(req.method) || !req.url.startsWith('/api/')) return;
-    const origin = req.headers.origin;
-    if (origin && !origins.has(origin))
-      throw new AppError('csrf_failed', 403, 'Cross-origin request rejected.');
-    const header = req.headers[CSRF_HEADER];
-    if (!csrfCheck(secret, req.cookies?.[CSRF_COOKIE], typeof header === 'string' ? header : undefined)) {
-      throw new AppError('csrf_failed', 403, 'Missing or invalid CSRF token.');
-    }
+  app.addHook('preHandler', (req, _reply, done) => {
+    done(csrfProblem(req, secret, origins) ?? undefined);
   });
 }
 

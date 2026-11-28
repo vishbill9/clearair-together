@@ -41,6 +41,16 @@ export default tseslint.config(
     files: ['src/**/*.ts', 'public/js/**/*.js', 'scripts/**/*.mjs'],
     rules: maintainability,
   },
+  // Server code also gets the strictest type-aware rules.
+  ...tseslint.configs.strictTypeChecked.map((c) => ({ ...c, files: ['src/**/*.ts'] })),
+  {
+    files: ['src/**/*.ts'],
+    languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname } },
+    rules: {
+      '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
+      '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreArrowShorthand: true }],
+    },
+  },
   {
     files: ['scripts/**/*.mjs'],
     languageOptions: { globals: globals.node },

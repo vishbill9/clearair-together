@@ -21,16 +21,16 @@ const intInRange = (def: number, min: number, max: number) =>
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: intInRange(3000, 1, 65535),
-  APP_ORIGIN: z.string().url().default('http://localhost:3000'),
+  APP_ORIGIN: z.url().default('http://localhost:3000'),
   DATABASE_URL: optionalString,
   GOOGLE_AIR_QUALITY_API_KEY: optionalString,
   GOOGLE_OAUTH_CLIENT_ID: optionalString,
   GOOGLE_OAUTH_CLIENT_SECRET: optionalString,
-  GOOGLE_AIR_QUALITY_BASE_URL: z.string().url().default('https://airquality.googleapis.com'),
+  GOOGLE_AIR_QUALITY_BASE_URL: z.url().default('https://airquality.googleapis.com'),
   ANTHROPIC_API_KEY: optionalString,
   OLLAMA_API_KEY: optionalString,
   OLLAMA_MODEL: z.string().min(1).default('gemma4:31b'),
-  OLLAMA_BASE_URL: z.string().url().default('https://ollama.com'),
+  OLLAMA_BASE_URL: z.url().default('https://ollama.com'),
   AI_PROVIDER: z.enum(['ollama', 'anthropic']).optional(),
   SESSION_SECRET: optionalString,
   AI_MODEL: z.string().min(1).default('claude-3-5-sonnet-latest'),
@@ -89,6 +89,7 @@ export interface Config {
   };
 }
 
+/** The environment is invalid or incomplete; the server refuses to start. */
 export class ConfigError extends Error {}
 
 const DEV_SESSION_SECRET_MESSAGE =

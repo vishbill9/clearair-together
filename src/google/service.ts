@@ -25,6 +25,7 @@ export interface ServiceOptions {
 const NOT_CONFIGURED_REASON =
   'Air-quality data is not configured on this server (Google Air Quality API key missing). No air-quality values are shown.';
 
+/** Readings with honest freshness: fresh, cached, stale (provider down) or unavailable. Never invented. */
 export class AirQualityService {
   private readonly now: () => Date;
   constructor(private readonly o: ServiceOptions) {
@@ -113,9 +114,9 @@ export class AirQualityService {
       .limit(1);
     const row = rows[0];
     if (!row) return null;
-    const payload = row.payload as AirQualitySnapshot;
-    if (payload?.source !== 'google_air_quality') return null;
-    return payload;
+    // Stored JSON is re-checked at runtime: only a Google snapshot may ever be shown.
+    const payload = row.payload as Partial<AirQualitySnapshot> | null;
+    return payload?.source === 'google_air_quality' ? (payload as AirQualitySnapshot) : null;
   }
 
   private async writeCache(key: string, snap: AirQualitySnapshot): Promise<void> {

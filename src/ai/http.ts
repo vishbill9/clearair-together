@@ -21,6 +21,9 @@ export function statusError(status: number): AiProviderError | null {
   return null;
 }
 
+/** True for the error `fetch` throws when its AbortSignal fires. */
+export const isAbort = (e: unknown): boolean => e instanceof Error && e.name === 'AbortError';
+
 async function send(p: JsonPost): Promise<Response> {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), p.timeoutMs);
@@ -33,7 +36,7 @@ async function send(p: JsonPost): Promise<Response> {
       redirect: 'error',
     });
   } catch (e) {
-    throw new AiProviderError((e as Error)?.name === 'AbortError' ? 'timeout' : 'network');
+    throw new AiProviderError(isAbort(e) ? 'timeout' : 'network');
   } finally {
     clearTimeout(timer);
   }

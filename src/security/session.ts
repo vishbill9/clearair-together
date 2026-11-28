@@ -15,6 +15,7 @@ const safeEqual = (a: string, b: string) => {
   return ab.length === bb.length && timingSafeEqual(ab, bb);
 };
 
+/** Signed, expiring session cookie value: `userId.expiry.hmac`. */
 export function signSession(secret: string, userId: string, now = Date.now()): string {
   const exp = Math.floor(now / 1000) + SESSION_MAX_AGE_SECONDS;
   const body = `${userId}.${exp}`;
@@ -46,6 +47,7 @@ function csrfTokenValid(secret: string, token: string | undefined): boolean {
   return safeEqual(sig, mac(secret, 'csrf', nonce));
 }
 
+/** Double-submit check: the header must equal the cookie, and the cookie must carry a valid signature. */
 export function csrfCheck(secret: string, cookie: string | undefined, header: string | undefined): boolean {
   if (!cookie || !header) return false;
   return safeEqual(cookie, header) && csrfTokenValid(secret, cookie);

@@ -10,6 +10,7 @@ export interface DbHandle {
   close(): Promise<void>;
 }
 
+/** Opens a pooled Postgres connection and the Drizzle query builder on top of it. */
 export function createDb(databaseUrl: string): DbHandle {
   // Parameterized queries only: postgres.js sends values separately from the SQL text.
   const sql = postgres(databaseUrl, {

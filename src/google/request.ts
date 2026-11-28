@@ -18,10 +18,10 @@ const languageCodeSchema = z
   .regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8}){0,2}$/, 'languageCode must be a BCP-47 tag such as "en" or "hi-IN"');
 
 const latitudeSchema = z.coerce.number().refine((n) => Number.isFinite(n) && n >= -90 && n <= 90, {
-  message: 'latitude must be between -90 and 90',
+  error: 'latitude must be between -90 and 90',
 });
 const longitudeSchema = z.coerce.number().refine((n) => Number.isFinite(n) && n >= -180 && n <= 180, {
-  message: 'longitude must be between -180 and 180',
+  error: 'longitude must be between -180 and 180',
 });
 
 /** Coordinates are rounded (about 1 km) for privacy, caching and consistent upstream calls. */
@@ -31,6 +31,7 @@ export function roundCoordinate(value: number): number {
   return Object.is(r, -0) ? 0 : r;
 }
 
+/** Cache key for a place: rounded coordinates plus language, so nearby requests share data. */
 export function locationKey(lat: number, lng: number, languageCode: string): string {
   return `${roundCoordinate(lat).toFixed(COORDINATE_DECIMALS)},${roundCoordinate(lng).toFixed(COORDINATE_DECIMALS)}|${languageCode}`;
 }
@@ -51,11 +52,12 @@ const isoInstant = z
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/.test(v) &&
       !Number.isNaN(Date.parse(v)),
     {
-      message: 'must be an RFC 3339 timestamp with a timezone, for example 2026-11-01T06:00:00Z',
+      error: 'must be an RFC 3339 timestamp with a timezone, for example 2026-11-01T06:00:00Z',
     },
   )
   .transform((v) => new Date(v).toISOString());
 
+/** Query schema for forecasts; the window must be in the future and within `maxHours`. */
 export function forecastQuerySchema(maxHours: number, now: () => Date = () => new Date()) {
   return z
     .object({
@@ -108,6 +110,7 @@ export interface ForecastRequest extends CurrentConditionsRequest {
 const PAGE_TOKEN = /^[A-Za-z0-9_\-=+/.]{1,2048}$/;
 export const isValidPageToken = (t: unknown): t is string => typeof t === 'string' && PAGE_TOKEN.test(t);
 
+/** Request body for Google's `currentConditions:lookup`. */
 export function buildCurrentRequest(q: {
   lat: number;
   lng: number;
@@ -121,6 +124,7 @@ export function buildCurrentRequest(q: {
   };
 }
 
+/** Request body for Google's `forecast:lookup`, one page at a time. */
 export function buildForecastRequest(
   q: { lat: number; lng: number; languageCode: string },
   startIso: string,

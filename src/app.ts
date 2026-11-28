@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import type { Config } from './config.js';
 import type { AppContext } from './context.js';
@@ -39,8 +39,9 @@ const seam = <T>(override: T | undefined, build: () => T): T => (override !== un
 const PUBLIC_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 
 function createServer(config: Config, logDestination?: NodeJS.WritableStream): FastifyInstance {
+  const logger: FastifyBaseLogger = createLogger(config.logLevel, logDestination);
   return Fastify({
-    loggerInstance: createLogger(config.logLevel, logDestination),
+    loggerInstance: logger,
     genReqId: () => randomUUID(), // never trust a client-supplied id
     requestIdHeader: false,
     bodyLimit: 64 * 1024,
@@ -48,7 +49,7 @@ function createServer(config: Config, logDestination?: NodeJS.WritableStream): F
     connectionTimeout: 30_000,
     trustProxy: config.trustProxy,
     ajv: { customOptions: { removeAdditional: false } },
-  }) as unknown as FastifyInstance;
+  });
 }
 
 function createContext(deps: AppDeps, provider: AiProvider | null): AppContext {
@@ -106,10 +107,10 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     reply.header('x-request-id', req.id);
   });
   registerErrorHandlers(app);
-  await registerApi(app, ctx);
-  await registerPlants(app, ctx, plantProvider);
-  await registerAuth(app, ctx);
-  await registerGoogleLogin(app, ctx, deps.oauthFetch);
+  registerApi(app, ctx);
+  registerPlants(app, ctx, plantProvider);
+  registerAuth(app, ctx);
+  registerGoogleLogin(app, ctx, deps.oauthFetch);
   await registerLive(app, ctx, upstream);
   await registerStatic(app);
   app.addHook('onClose', async () => {

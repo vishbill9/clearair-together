@@ -1077,3 +1077,38 @@ button:disabled {
     transition: none;
   }
 }
+
+/* Invalid fields: a border and outline as well as the linked message, never colour alone. */
+input[aria-invalid='true'] {
+  border-color: var(--unhealthy);
+  outline: 2px solid var(--unhealthy);
+  outline-offset: 1px;
+}
+
+/* Windows High Contrast and other forced-colour modes: keep the gauge and status chips meaningful. */
+@media (forced-colors: active) {
+  .seg {
+    stroke: GrayText;
+    opacity: 1;
+  }
+  .gauge[data-active='good'] .seg-good,
+  .gauge[data-active='moderate'] .seg-moderate,
+  .gauge[data-active='sensitive'] .seg-sensitive,
+  .gauge[data-active='unhealthy'] .seg-unhealthy,
+  .gauge[data-active='very_unhealthy'] .seg-very {
+    stroke: Highlight;
+  }
+  .needle-body,
+  .hub {
+    fill: CanvasText;
+  }
+  .badge,
+  .eff,
+  .chip,
+  .chip-btn {
+    border: 1px solid CanvasText;
+  }
+  input[aria-invalid='true'] {
+    outline-color: Highlight;
+  }
+}

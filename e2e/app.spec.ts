@@ -43,6 +43,15 @@ test('validates the location form', async ({ page }) => {
   await page.goto('/');
   await setLocation(page, '123', '10');
   await expect(page.locator('#loc-error')).toContainText('latitude between -90 and 90');
+  // The message is tied to the fields, which are marked invalid, and focus moves to the first one.
+  const lat = page.getByLabel('Latitude');
+  await expect(lat).toHaveAttribute('aria-invalid', 'true');
+  await expect(lat).toHaveAttribute('aria-describedby', 'loc-error');
+  await expect(lat).toBeFocused();
+  // A place no other test uses, so this does not warm their cache.
+  await setLocation(page, '12.97', '77.59');
+  await expect(lat).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('#loc-error')).toBeHidden();
 });
 
 test('household, daily plan, feedback, routine comparison with separate columns', async ({ page }) => {

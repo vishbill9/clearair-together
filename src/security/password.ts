@@ -10,6 +10,7 @@ const derive = (password: string, salt: Buffer, opts: ScryptOptions) =>
     scrypt(password.normalize('NFKC'), salt, KEYLEN, opts, (e, k) => (e ? reject(e) : resolve(k))),
   );
 
+/** scrypt hash with a random salt, stored with its parameters so they can be raised later. */
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16);
   const key = await derive(password, salt, { N, r: R, p: P, maxmem: 64 * 1024 * 1024 });
@@ -19,6 +20,7 @@ export async function hashPassword(password: string): Promise<string> {
 // Used to keep login timing the same whether or not the email exists.
 let dummy: Promise<string> | undefined;
 
+/** Constant-time check. Unknown users are checked against a dummy hash so timing reveals nothing. */
 export async function verifyPassword(password: string, stored: string | null | undefined): Promise<boolean> {
   const hash = stored ?? (await (dummy ??= hashPassword('not-a-real-password')));
   const parts = hash.split('$');

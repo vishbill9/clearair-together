@@ -1,4 +1,4 @@
-import { $, clear, h, show } from './dom.js';
+import { $, clear, fieldError, h, show } from './dom.js';
 import { api } from './api.js';
 import { errText, fmt, setMsg, state, STATUS_TEXT, syncButtons } from './state.js';
 
@@ -113,15 +113,19 @@ function readLocation() {
   return valid ? { lat, lng } : null;
 }
 
-function locationError(text) {
-  $('loc-error').textContent = text;
-  show($('loc-error'), Boolean(text));
+const locationFields = () => [$('lat'), $('lng')];
+
+/** Shows a location problem; `invalid` marks the coordinate fields as the cause. Empty text clears it. */
+function locationError(text, invalid = false) {
+  fieldError($('loc-error'), text, invalid || !text ? locationFields() : []);
 }
 
 /** Validates the form, then fetches the verified reading for that place. */
 export async function checkAir() {
   const loc = readLocation();
-  if (!loc) return locationError('Enter a latitude between -90 and 90 and a longitude between -180 and 180.');
+  if (!loc) {
+    return locationError('Enter a latitude between -90 and 90 and a longitude between -180 and 180.', true);
+  }
   locationError('');
   state.loc = loc;
   const panel = $('status-panel');

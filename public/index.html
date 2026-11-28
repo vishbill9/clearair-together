@@ -66,11 +66,25 @@
           <form id="loc-form" class="loc" novalidate>
             <div class="field">
               <label for="lat">Latitude</label
-              ><input id="lat" name="lat" inputmode="decimal" autocomplete="off" required />
+              ><input
+                id="lat"
+                name="lat"
+                inputmode="decimal"
+                autocomplete="off"
+                required
+                aria-describedby="loc-error"
+              />
             </div>
             <div class="field">
               <label for="lng">Longitude</label
-              ><input id="lng" name="lng" inputmode="decimal" autocomplete="off" required />
+              ><input
+                id="lng"
+                name="lng"
+                inputmode="decimal"
+                autocomplete="off"
+                required
+                aria-describedby="loc-error"
+              />
             </div>
             <div class="actions">
               <button type="button" id="geo" class="secondary">Use my location</button>
@@ -517,7 +531,14 @@
         </div>
         <div class="field">
           <label for="auth-email">Email</label
-          ><input id="auth-email" type="email" autocomplete="email" maxlength="254" required />
+          ><input
+            id="auth-email"
+            type="email"
+            autocomplete="email"
+            maxlength="254"
+            required
+            aria-describedby="auth-error"
+          />
         </div>
         <div class="field">
           <label for="auth-pass">Password</label
@@ -528,6 +549,7 @@
             minlength="10"
             maxlength="128"
             required
+            aria-describedby="pass-hint auth-error"
           />
           <span class="hint" id="pass-hint" hidden
             >At least 10 characters. A few random words work well.</span

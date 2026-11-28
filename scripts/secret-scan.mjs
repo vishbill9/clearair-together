@@ -37,7 +37,7 @@ function scanFile(p, rel, name) {
   try {
     text = readFileSync(p, 'utf8');
   } catch {
-    return;
+    return; // unreadable file (permissions, special file): nothing to scan
   }
   if (text.includes('\u0000')) return; // binary
   text.split('\n').forEach((line, i) => {
